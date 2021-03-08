@@ -83,6 +83,7 @@
 static unsigned short mode_X_seq[NUM_SEQUENCER_REGS] = {
     0x0100, 0x2101, 0x0F02, 0x0003, 0x0604
 };
+// here we change the compare line field to （200-18）*2-1 i.e. (pixel hight of X mode - pixel hight of bar) * （(number of horizontal scan line for screen)/ (hight of pixels for screen)） - 1
 static unsigned short mode_X_CRTC[NUM_CRTC_REGS] = {
     0x5F00, 0x4F01, 0x5002, 0x8203, 0x5404, 0x8005, 0xBF06, 0x1F07,
     0x0008, 0x0109, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x000F,
@@ -1206,7 +1207,7 @@ void refresh_bar(int level, int num_fruit, int time){
     /* Draw to each plane in the video memory. */
     for ( p_off = 0; p_off < 4; p_off++) {
         SET_WRITE_MASK(1 << (p_off + 8)); // set musk for the plane we want
-        addr=tex_VGA_buffer+p_off*SCROLL_X_WIDTH*18;
+        addr=tex_VGA_buffer+p_off*SCROLL_X_WIDTH*18; //18 is the hight of the bar
         copy_status_bar(addr, 0x0000); //(num_of_pixel_in_plane=SCROLL_X_WIDTH*18) 0x0000=start of mem
     }
 }
