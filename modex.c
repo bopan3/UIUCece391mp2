@@ -85,9 +85,9 @@ static unsigned short mode_X_seq[NUM_SEQUENCER_REGS] = {
 };
 static unsigned short mode_X_CRTC[NUM_CRTC_REGS] = {
     0x5F00, 0x4F01, 0x5002, 0x8203, 0x5404, 0x8005, 0xBF06, 0x1F07,
-    0x0008, 0x4109, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x000F,
+    0x0008, 0x0109, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E, 0x000F,
     0x9C10, 0x8E11, 0x8F12, 0x2813, 0x0014, 0x9615, 0xB916, 0xE317,
-    0xFF18
+    0x6B18
 };
 static unsigned char mode_X_attr[NUM_ATTR_REGS * 2] = {
     0x00, 0x00, 0x01, 0x01, 0x02, 0x02, 0x03, 0x03,
@@ -300,7 +300,8 @@ int set_mode_X(void (*horiz_fill_fn)(int, int, unsigned char[SCROLL_X_DIM]),
     }
 
     /* One display page goes at the start of video memory. */
-    target_img = 0x0000;
+    target_img = 18* IMAGE_X_WIDTH; // 18 = text hight+ 2 pixel.  Here we just add offset for the bar
+
 
     /* Map video memory and obtain permission for VGA port access. */
     if (open_memory_and_ports() == -1)
