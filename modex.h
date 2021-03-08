@@ -136,4 +136,10 @@ extern int draw_horiz_line(int y);
 /* draw a vertical line at horizontal pixel x within the logical view window */
 extern int draw_vert_line(int x);
 
+/* refresh the status bar on screen */
+extern void refresh_bar(int level, int num_fruit, int time);
+
+
+
+
 #endif /* MODEX_H */
