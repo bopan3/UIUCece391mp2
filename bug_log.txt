@@ -1,0 +1,30 @@
+Version 1: vertical line finished
+    no bug
+Version 2: status bar finished
+    bug1:
+        What: The status bar does not show anything, segment fault
+        Clue: the warning during compilation said something like "convert int to pointer"
+        How: convert "tex_VGA_buffer+p_off*SCROLL_X_WIDTH*18" to unsigned char* type
+    bug2：
+        What: The screen split position is not correct
+        Clue: see the VEG document for detail
+        How: find "vertical end register" store the number of lines in one screen, since it's 400,
+        we have to set the compare line field to （200-18）*(400/200)-1 rather than （200-18)-1
+Version 3: musk finished
+    bug1:
+        What: the palyer cannot move after 1 second elapsed & segment fault
+        Clue: use ssh and gdb to find that segment fault happens when we what to write data in blocks.S
+        How: find data in block.S can only be read, not write from functions in mazegame, so allocate the buffer for restore
+        in file mazegame.c
+    bug2:
+        What: although later move is ok, in the beginning of the game, the player's block still has black background
+        How: modify the draw_block also for the beginning player drawing (maze initialition)
+    bug3:
+        What: suddenly tons of errors flying on the screen during compilation
+        How: use ssh to see the first error massage "storage class specified for parameter" and search on internet to know it'S
+        due to missing ";" in head file. 
+
+
+
+
+
