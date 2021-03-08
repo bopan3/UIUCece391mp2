@@ -70,7 +70,9 @@ void text_to_graphics(char* string_text, unsigned char* tex_buffer){
     for (row_idx=1; row_idx<row_tol-1; row_idx++){  //here row_idx ranges from 1 to row_tol-1 to make room for requested 1 pixel space 
         for (col_idx=0; col_idx<col_tol; col_idx++){
             ascii_idx=string_text[col_idx/8];  // 8 is the width of a char image
-            if((((font_data[ascii_idx][row_idx-1])>>(7-col_idx%8))&1)==1){
+            // see if the current bit is for TEXT
+            if((((font_data[ascii_idx][row_idx-1])>>(7-col_idx%8))&1)==1){   // col_idx%8 is the relative col number for this pixel in its corresponding character,
+                                                                                 //7 minus this value to shift it to the left most bit  
                tex_buffer[row_idx*col_tol+col_idx] = COLOR_TEXT;
             }
             

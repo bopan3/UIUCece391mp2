@@ -423,6 +423,7 @@ static void *rtc_thread(void *arg) {
         draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
         //draw_full_block(play_x, play_y, get_player_block(last_dir));
         show_screen();
+        // restore the pixel in restore_block
         restore_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
 
 
@@ -541,6 +542,7 @@ static void *rtc_thread(void *arg) {
             if (need_redraw | 1){  // We always show screen
                 draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
                 show_screen();   
+                // restore the pixel in restore_block
                 restore_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
             }
             need_redraw = 0;
