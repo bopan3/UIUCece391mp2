@@ -139,7 +139,18 @@ extern int draw_vert_line(int x);
 /* refresh the status bar on screen */
 extern void refresh_bar(int level, int num_fruit, int time);
 
-
-
+/*
+ * draw a 12x12 block with upper left corner at logical position
+ * (pos_x,pos_y); any part of the block outside of the logical view window
+ * is clipped (cut off and not drawn). And we only draw the position where the corresponding position in mask is 1 
+ * (before we draw it we first store the old map into the corresponding position in restore block)
+ */
+extern void draw_full_block_with_mask(int pos_x, int pos_y, unsigned char* blk, unsigned char* mask, unsigned char* restore_block);
+/*
+ * restore a 12x12 block with upper left corner at logical position
+ * (pos_x,pos_y); any part of the block outside of the logical view window
+ * is clipped (cut off and not drawn). And we only restore the position where the corresponding position in mask is 1 
+ */
+extern void restore_full_block_with_mask(int pos_x, int pos_y, unsigned char* blk, unsigned char* mask, unsigned char* restore_block);
 
 #endif /* MODEX_H */

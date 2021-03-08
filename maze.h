@@ -98,4 +98,8 @@ extern void find_open_directions(int x, int y, int op[NUM_DIRS]);
 
 /*return the number of fuits in maze*/
 extern int get_num_fruits();
+
+/* get pointer to the block for old map restore */
+extern unsigned char* get_restore_block();
+
 #endif /* MAZE_H */

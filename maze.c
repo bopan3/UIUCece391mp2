@@ -785,6 +785,24 @@ unsigned char* get_player_mask(dir_t cur_dir) {
 }
 
 /* 
+ * get_restore_block
+ *   DESCRIPTION: Get a the bloack for restore the map
+ *   INPUTS: cur_dir -- current direction of motion for the player
+ *   OUTPUTS: none
+ *   RETURN VALUE: a pointer to an image of a BLOCK_X_DIM x BLOCK_Y_DIM
+ *                 block of data with one byte per pixel laid out as a
+ *                 C array of dimension [BLOCK_Y_DIM][BLOCK_X_DIM];
+ *                 the bytes in this block indicate whether or not the
+ *                 corresponding byte in the player image should be
+ *                 drawn (1 is drawn/opaque, 0 is not drawn/fully 
+ *                 transparent)
+ *   SIDE EFFECTS: none
+ */
+unsigned char* get_restore_block() {
+    return (unsigned char*)blocks[BLOCK_RESTORE];
+}
+
+/* 
  * find_open_directions
  *   DESCRIPTION: Determine which directions are open to movement from a 
  *              given maze point.

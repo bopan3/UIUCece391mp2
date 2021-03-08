@@ -602,6 +602,160 @@ void draw_full_block(int pos_x, int pos_y, unsigned char* blk) {
 }
 
 /*
+ * draw_full_block_with_mask
+ *   DESCRIPTION:  * draw a 12x12 block with upper left corner at logical position
+ *                (pos_x,pos_y); any part of the block outside of the logical view window
+ *               is clipped (cut off and not drawn). And we only draw the position where the corresponding position in mask is 1 
+ *                  (before we draw it we first store the old map into the corresponding position in restore block)
+ *   INPUTS: (pos_x,pos_y) -- coordinates of upper left corner of block
+ *           blk -- image data for block (one byte per pixel, as a C array
+ *                  of dimensions [BLOCK_Y_DIM][BLOCK_X_DIM])
+ *           mask -- the data for mask of the player
+ *           restore_block -- the place for us to store the old map data
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: draws into the build buffer (with mask), store the old map before the draw
+ */
+void draw_full_block_with_mask(int pos_x, int pos_y, unsigned char* blk, unsigned char* mask, unsigned char* restore_block) {
+    int dx, dy;          /* loop indices for x and y traversal of block */
+    int x_left, x_right; /* clipping limits in horizontal dimension     */
+    int y_top, y_bottom; /* clipping limits in vertical dimension       */
+
+    /* If block is completely off-screen, we do nothing. */
+    if (pos_x + BLOCK_X_DIM <= show_x || pos_x >= show_x + SCROLL_X_DIM ||
+        pos_y + BLOCK_Y_DIM <= show_y || pos_y >= show_y + SCROLL_Y_DIM)
+        return;
+
+    /* Clip any pixels falling off the left side of screen. */
+    if ((x_left = show_x - pos_x) < 0)
+        x_left = 0;
+    /* Clip any pixels falling off the right side of screen. */
+    if ((x_right = show_x + SCROLL_X_DIM - pos_x) > BLOCK_X_DIM)
+        x_right = BLOCK_X_DIM;
+    /* Skip the first x_left pixels in both screen position and block data and mask and restore bloack. */
+    pos_x += x_left;
+    blk += x_left;
+    mask += x_left;
+    restore_block += x_left;
+
+
+    /*
+     * Adjust x_right to hold the number of pixels to be drawn, and x_left
+     * to hold the amount to skip between rows in the block, which is the
+     * sum of the original left clip and (BLOCK_X_DIM - the original right
+     * clip).
+     */
+    x_right -= x_left;
+    x_left = BLOCK_X_DIM - x_right;
+
+    /* Clip any pixels falling off the top of the screen. */
+    if ((y_top = show_y - pos_y) < 0)
+        y_top = 0;
+    /* Clip any pixels falling off the bottom of the screen. */
+    if ((y_bottom = show_y + SCROLL_Y_DIM - pos_y) > BLOCK_Y_DIM)
+        y_bottom = BLOCK_Y_DIM;
+    /*
+     * Skip the first y_left pixel in screen position and the first
+     * y_left rows of pixels in the block data (and mask and restore block).
+     */
+    pos_y += y_top;
+    blk += y_top * BLOCK_X_DIM;
+    mask += y_top * BLOCK_X_DIM;
+    restore_block += y_top * BLOCK_X_DIM;
+    /* Adjust y_bottom to hold the number of pixel rows to be drawn. */
+    y_bottom -= y_top;
+
+    /* Draw the clipped image. */
+    for (dy = 0; dy < y_bottom; dy++, pos_y++) {
+        for (dx = 0; dx < x_right; dx++, pos_x++, blk++, mask++, restore_block++)
+            // store the old map to "restore bloack" and draw the player if *musk==1
+            if (*mask==1){
+                *restore_block = *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE);
+                *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE) = *blk;
+            }
+        pos_x -= x_right;
+        blk += x_left;
+        mask += x_left;
+        restore_block += x_left;
+    }
+}
+/*
+ * restore_full_block_with_mask
+ *   DESCRIPTION:  * restore a 12x12 block with upper left corner at logical position
+ *                (pos_x,pos_y); any part of the block outside of the logical view window
+ *               is clipped (cut off and not drawn). And we only restore the position where the corresponding position in mask is 1 
+ *   INPUTS: (pos_x,pos_y) -- coordinates of upper left corner of block
+ *           blk -- image data for block (one byte per pixel, as a C array
+ *                  of dimensions [BLOCK_Y_DIM][BLOCK_X_DIM])
+ *           mask -- the data for mask of the player
+ *           restore_block -- the place for us to store the old map data
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: restore the old map to the build buffer
+ */
+void restore_full_block_with_mask(int pos_x, int pos_y, unsigned char* blk, unsigned char* mask, unsigned char* restore_block) {
+    int dx, dy;          /* loop indices for x and y traversal of block */
+    int x_left, x_right; /* clipping limits in horizontal dimension     */
+    int y_top, y_bottom; /* clipping limits in vertical dimension       */
+
+    /* If block is completely off-screen, we do nothing. */
+    if (pos_x + BLOCK_X_DIM <= show_x || pos_x >= show_x + SCROLL_X_DIM ||
+        pos_y + BLOCK_Y_DIM <= show_y || pos_y >= show_y + SCROLL_Y_DIM)
+        return;
+
+    /* Clip any pixels falling off the left side of screen. */
+    if ((x_left = show_x - pos_x) < 0)
+        x_left = 0;
+    /* Clip any pixels falling off the right side of screen. */
+    if ((x_right = show_x + SCROLL_X_DIM - pos_x) > BLOCK_X_DIM)
+        x_right = BLOCK_X_DIM;
+    /* Skip the first x_left pixels in both screen position and block data and mask and restore bloack. */
+    pos_x += x_left;
+    blk += x_left;
+    mask += x_left;
+    restore_block += x_left;
+
+
+    /*
+     * Adjust x_right to hold the number of pixels to be drawn, and x_left
+     * to hold the amount to skip between rows in the block, which is the
+     * sum of the original left clip and (BLOCK_X_DIM - the original right
+     * clip).
+     */
+    x_right -= x_left;
+    x_left = BLOCK_X_DIM - x_right;
+
+    /* Clip any pixels falling off the top of the screen. */
+    if ((y_top = show_y - pos_y) < 0)
+        y_top = 0;
+    /* Clip any pixels falling off the bottom of the screen. */
+    if ((y_bottom = show_y + SCROLL_Y_DIM - pos_y) > BLOCK_Y_DIM)
+        y_bottom = BLOCK_Y_DIM;
+    /*
+     * Skip the first y_left pixel in screen position and the first
+     * y_left rows of pixels in the block data (and mask and restore block).
+     */
+    pos_y += y_top;
+    blk += y_top * BLOCK_X_DIM;
+    mask += y_top * BLOCK_X_DIM;
+    restore_block += y_top * BLOCK_X_DIM;
+    /* Adjust y_bottom to hold the number of pixel rows to be drawn. */
+    y_bottom -= y_top;
+
+    /* Draw the clipped image. */
+    for (dy = 0; dy < y_bottom; dy++, pos_y++) {
+        for (dx = 0; dx < x_right; dx++, pos_x++, blk++, mask++, restore_block++)
+            // store the old map to "restore bloack" and draw the player if *musk==1
+            if (*mask==1){
+                *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE) = *restore_block;
+            }
+        pos_x -= x_right;
+        blk += x_left;
+        mask += x_left;
+        restore_block += x_left;
+    }
+}
+/*
  * The functions inside the preprocessor block below rely on functions
  * in maze.c to generate graphical images of the maze.  These functions
  * are neither available nor necessary for the text restoration program

@@ -394,6 +394,7 @@ static void *rtc_thread(void *arg) {
     int open[NUM_DIRS];
     int need_redraw = 0;
     int goto_next_level = 0;
+    unsigned char restore_block[12*12]; // a block is 12*12
 
     // Loop over levels until a level is lost or quit.
     for (level = 1; (level <= MAX_LEVEL) && (quit_flag == 0); level++) {
@@ -419,9 +420,11 @@ static void *rtc_thread(void *arg) {
 
         // Show maze around the player's original position
         (void)unveil_around_player(play_x, play_y);
-
-        draw_full_block(play_x, play_y, get_player_block(last_dir));
+        draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
+        //draw_full_block(play_x, play_y, get_player_block(last_dir));
         show_screen();
+        restore_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
+
 
         // get first Periodic Interrupt
         ret = read(fd, &data, sizeof(unsigned long));
@@ -531,12 +534,15 @@ static void *rtc_thread(void *arg) {
                             move_left(&play_x);  
                             break;
                     }
-                    draw_full_block(play_x, play_y, get_player_block(last_dir));    
+                    //draw_full_block(play_x, play_y, get_player_block(last_dir));    
                     need_redraw = 1;
                 }
             }
-            if (need_redraw)
-                show_screen();    
+            if (need_redraw | 1){  // We always show screen
+                draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
+                show_screen();   
+                restore_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
+            }
             need_redraw = 0;
         }    
     }

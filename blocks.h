@@ -105,6 +105,7 @@ enum {
     BLOCK_FRUIT_7,  LAST_FRUIT = BLOCK_FRUIT_7,
     BLOCK_FRUIT_SHADOW,   /* obscured fruit                               */
     BLOCK_EXIT,           /* the exit from the maze                       */
+    BLOCK_RESTORE,       /* for storing restore infos */
     NUM_BLOCKS
 };
 
