@@ -41,7 +41,12 @@
 #define FONT_WIDTH   8
 #define FONT_HEIGHT  16
 
+#define COLOR_TEXT            0x09
+#define COLOR_BACK            0x32
+
 /* Standard VGA text font. */
 extern unsigned char font_data[256][16];
+
+extern void text_to_graphics(char* string_text, unsigned char* tex_buffer);
 
 #endif /* TEXT_H */

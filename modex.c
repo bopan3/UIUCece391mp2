@@ -136,6 +136,7 @@ static void fill_palette();
 static void write_font_data();
 static void set_text_mode_3(int clear_scr);
 static void copy_image(unsigned char* img, unsigned short scr_addr);
+static void copy_status_bar(unsigned char* img, unsigned short scr_addr);
 
 /*
  * Images are built in this buffer, then copied to the video memory.
@@ -999,6 +1000,92 @@ static void copy_image(unsigned char* img, unsigned short scr_addr) {
         : "eax", "ecx", "memory"
     );
 }
+
+/*
+ * refresh_bar
+ *   DESCRIPTION: 1. convert "level num_fruit time" infos into a string with 320/8=40 chracters
+ *                2. call text_to_graphics to render the string into graphic 
+ *                      (result in a tex_buffer of size (320*18) i.e. width of bar * hight_of_bar)
+ *                3. copu the data format in tex_buffer into tex_VGA_buffer in a format friendly to VGA
+ *                4. do copy_status_bar four times (for each plane) to copy the status bar to the start of vedeo_mem
+ *   INPUTS: level -- current levels
+ *           num_fruit -- number of fruits in maze now
+ *           time -- seconds since start
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: copies a plane from the build buffer to video memory
+ */
+void refresh_bar(int level, int num_fruit, int time){
+    unsigned char tex_buffer[320*18];                  //buffer for text graphic. size = width of bar * hight_of_bar
+    unsigned char tex_VGA_buffer[4*(SCROLL_X_WIDTH*18)]; /* buffer for graphical image in VGA friendly farmat
+                                                          size = num_plane*(SCROLL_X_WIDTH* hight_of_bar)*/
+    int tex_buffer_idx; // idx of the pixel in tex_buffer
+    int tex_VGA_buffer_idx; // idx of the pixel in tex_VGA_buffer
+    int p_off;  // the index of the plane
+    int pixel_idx; //the index of pixel in a plane
+    unsigned char* addr; //address to the start of the plane we want to copy
+    int t_3,t_2,t_1,t_0,l_1,l_0;   //different bits of time and level
+    //1. convert "level num_fruit time" infos into a string with 320/8=40 chracters
+    char string_text[]="0123456789012345678901234567890123456789"; //just rubbish number to make room for 40 chars    
+    t_3=(time/60)/10; // 10 minutes
+    t_2=(time/60)%10; // 1 minute
+    t_1=(time%60)/10; // 10 seconds
+    t_0=(time%60)%10; // 1 second
+    l_1=level/10; // 10 levels
+    l_0=level%10; // 1 level
+    sprintf(string_text,"       Level %d%d   %d Fruits  %d%d:%d%d       ",l_1,l_0,num_fruit,t_3,t_2,t_1,t_0);
+
+    //2. call text_to_graphics to render the string into graphic 
+    text_to_graphics(string_text,tex_buffer);
+
+    //3. copu the data format in tex_buffer into tex_VGA_buffer in a format friendly to VGA
+    for ( p_off=0; p_off<4;p_off++) {  //loop through 4 planes 
+        for ( pixel_idx=0; pixel_idx< SCROLL_X_WIDTH*18; pixel_idx++){ //loop through every pixel in this plane (num_of_pixel_in_plane=SCROLL_X_WIDTH*18)
+            tex_buffer_idx = p_off + pixel_idx*4; // 4 planes
+            tex_VGA_buffer_idx = p_off* (SCROLL_X_WIDTH*18)+ pixel_idx;  //(num_of_pixel_in_plane=SCROLL_X_WIDTH*18)
+            tex_VGA_buffer[tex_VGA_buffer_idx]=tex_buffer[tex_buffer_idx]; 
+        }
+    }
+
+    //4. do copy_status_bar four times (for each plane) to copy the status bar to the start of vedeo_mem
+
+    /* Draw to each plane in the video memory. */
+    for ( p_off = 0; p_off < 4; p_off++) {
+        SET_WRITE_MASK(1 << (p_off + 8)); // set musk for the plane we want
+        addr=tex_VGA_buffer+p_off*SCROLL_X_WIDTH*18;
+        copy_status_bar(addr, 0x0000); //(num_of_pixel_in_plane=SCROLL_X_WIDTH*18) 0x0000=start of mem
+    }
+}
+
+/*
+ * copy_status_bar
+ *   DESCRIPTION: Copy one plane of a screen from the tex_VGA_buffer to the
+ *                video memory.
+ *   INPUTS: img -- a pointer to a single screen plane in the build buffer
+ *           scr_addr -- the destination offset in video memory
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: copies a plane from the tex_VGA_buffer to video memory
+ */
+static void copy_status_bar(unsigned char* img, unsigned short scr_addr) {
+    /*
+     * memcpy is actually probably good enough here, and is usually
+     * implemented using ISA-specific features like those below,
+     * but the code here provides an example of x86 string moves
+     */
+    asm volatile ("                                             \n\
+        cld                                                     \n\
+        movl $1440,%%ecx                                       \n\
+        rep movsb    /* copy ECX bytes from M[ESI] to M[EDI] */ \n\
+        "
+        : /* no outputs */
+        : "S"(img), "D"(mem_image + scr_addr)
+        : "eax", "ecx", "memory"
+    );
+    // 1440=80*18=pixels in one plane for the bar
+}
+
+
 
 #ifdef TEXT_RESTORE_PROGRAM
 

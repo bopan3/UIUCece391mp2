@@ -38,6 +38,47 @@
 
 #include "text.h"
 
+#define COLOR_TEXT            0x09
+#define COLOR_BACK            0x32
+
+/*
+ * text_to_graphics
+ *   DESCRIPTION: render the string into graphic 
+ *                      (result in a tex_buffer of size (320*18) i.e. width of bar * hight_of_bar)
+ *   INPUTS: string_text -- pointer to the string to print
+ *           tex_buffer -- pointer to the buffer for graphics
+ *   OUTPUTS: tex_buffer with graphics
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: 
+ */
+void text_to_graphics(char* string_text, unsigned char* tex_buffer){
+    //int char_idx;  // idx of the char to write
+    int row_tol=18;   // total number of rows of the bar
+    int col_tol=320;  // total number of columns of the bar
+    //int character_height=16; //each char is 8*16 pixels
+    //int chatacter_width=8;   //each char is 8*16 pixels
+    int row_idx;  // the idx of current row
+    int col_idx;  // the idx of current column
+    int ascii_idx; // the idx of the ascii
+    // render background first
+    for (row_idx=0; row_idx<row_tol; row_idx++){
+        for (col_idx=0; col_idx<col_tol; col_idx++){
+            tex_buffer[row_idx*col_tol+col_idx] = COLOR_BACK;
+        }
+    }
+    // render text
+    for (row_idx=1; row_idx<row_tol-1; row_idx++){  //here row_idx ranges from 1 to row_tol-1 to make room for requested 1 pixel space 
+        for (col_idx=0; col_idx<col_tol; col_idx++){
+            ascii_idx=string_text[col_idx/8];  // 8 is the width of a char image
+            if((((font_data[ascii_idx][row_idx-1])>>(7-col_idx%8))&1)==1){
+               tex_buffer[row_idx*col_tol+col_idx] = COLOR_TEXT;
+            }
+            
+        }
+    }    
+}
+
+
 /* 
  * These font data were read out of video memory during text mode and
  * saved here.  They could be read in the same manner at the start of a

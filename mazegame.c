@@ -425,6 +425,11 @@ static void *rtc_thread(void *arg) {
 
         // get first Periodic Interrupt
         ret = read(fd, &data, sizeof(unsigned long));
+        // record the time when we start this level
+        time_t time_this_level_start;  
+        time_t time_now;  
+        time_t time_from_start;
+        time_this_level_start =time(NULL);
 
         while ((quit_flag == 0) && (goto_next_level == 0)) {
             // Wait for Periodic Interrupt
@@ -436,7 +441,11 @@ static void *rtc_thread(void *arg) {
             ticks = data >> 8;    
 
             total += ticks;
-
+            
+            // refresh status bar
+            time_now = time(NULL);
+            time_from_start = time_now - time_this_level_start;
+            refresh_bar(level, get_num_fruits(), time_from_start);
             // If the system is completely overwhelmed we better slow down:
             if (ticks > 8) ticks = 8;
 

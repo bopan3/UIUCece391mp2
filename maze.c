@@ -91,6 +91,18 @@ static int exit_x, exit_y;      /* lattice point of maze exit   */
 #define MAZE_INDEX(a,b) ((a) + ((b) + 1) * maze_x_dim * 2)
 
 /* 
+ * get_num_fruits
+ *   DESCRIPTION: Return the num of fruits in maze
+ *   INPUTS: none
+ *   OUTPUTS: none
+ *   RETURN VALUE: num of fruits in maze
+ *   SIDE EFFECTS: 
+ */
+int get_num_fruits(){
+    return n_fruits;
+}
+
+/* 
  * mark_maze_area
  *   DESCRIPTION: Uses a breadth-first search to marks all parts of the 
  *                maze accessible from (x,y) with the MAZE_REACH bit.
