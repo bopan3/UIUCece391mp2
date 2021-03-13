@@ -35,11 +35,9 @@
  */
 
 #include <string.h>
-
+#include <stdio.h>
 #include "text.h"
 
-#define COLOR_TEXT            0x09
-#define COLOR_BACK            0x32
 
 /*
  * text_to_graphics
@@ -78,6 +76,24 @@ void text_to_graphics(char* string_text, unsigned char* tex_buffer){
             
         }
     }    
+}
+
+/*
+ * make_fruit_text_graphics
+ *   DESCRIPTION: render the string (for the corresponding fruit) into graphic 
+ *                      (result in a tex_buffer of size (320*18) i.e. width of bar * hight_of_bar)
+ *   INPUTS: fruit_num -- the which num of this fuirt is 
+ *           tex_buffer -- pointer to the buffer for graphics
+ *   OUTPUTS: fruit_text_buffer with graphics
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: 
+ */
+void make_fruit_text_graphics(int fruit_num, unsigned char* fruit_text_buffer){
+    //1. given "fruit_num", generate a string with the corresponding info
+    char string_text[]="0123456789          01234567890123456789"; //just rubbish number to make room for 40 chars    
+    //sprintf(string_text,"       Level        Fruits     ?        ");
+    //2. call text_to_graphics to render the string into graphic 
+    text_to_graphics(string_text,fruit_text_buffer);
 }
 
 

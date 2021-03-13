@@ -78,6 +78,8 @@
 #define NUM_CRTC_REGS           25
 #define NUM_GRAPHICS_REGS       9
 #define NUM_ATTR_REGS           22
+#define WHITE                   0x3F
+#define NUM_NONTRANS_COLOR      64
 
 /* VGA register settings for mode X */
 static unsigned short mode_X_seq[NUM_SEQUENCER_REGS] = {
@@ -756,6 +758,156 @@ void restore_full_block_with_mask(int pos_x, int pos_y, unsigned char* blk, unsi
         restore_block += x_left;
     }
 }
+
+
+/*
+ * draw_fruit_text_with_mask
+ *   DESCRIPTION:  * draw a 18x320 block with upper left corner at logical position
+ *                (pos_x,pos_y); any part of the block outside of the logical view window
+ *               is clipped (cut off and not drawn). And we only change the position where the corresponding position in text_mask is STATUS_TEXT_COLOR
+ *                  (before we draw it we first store the old map into the corresponding position in restore block)
+ *   INPUTS: (pos_x,pos_y) -- coordinates of upper left corner of block
+ *           mask -- the data for mask of text
+ *           restore_block -- the place for us to store the old map data
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: draws into the build buffer (with mask), store the old map before the draw
+ */
+void draw_fruit_text_with_mask(int pos_x, int pos_y, unsigned char* mask, unsigned char* restore_block) {
+    int dx, dy;          /* loop indices for x and y traversal of block */
+    int x_left, x_right; /* clipping limits in horizontal dimension     */
+    int y_top, y_bottom; /* clipping limits in vertical dimension       */
+
+    /* If block is completely off-screen, we do nothing. */
+    if (pos_x + BLOCK_FRT_TXT_X_DIM <= show_x || pos_x >= show_x + SCROLL_X_DIM ||
+        pos_y + BLOCK_FRT_TXT_Y_DIM <= show_y || pos_y >= show_y + SCROLL_Y_DIM)
+        return;
+
+    /* Clip any pixels falling off the left side of screen. */
+    if ((x_left = show_x - pos_x) < 0)
+        x_left = 0;
+    /* Clip any pixels falling off the right side of screen. */
+    if ((x_right = show_x + SCROLL_X_DIM - pos_x) > BLOCK_FRT_TXT_X_DIM)
+        x_right = BLOCK_FRT_TXT_X_DIM;
+    /* Skip the first x_left pixels in both screen position and block data and mask and restore bloack. */
+    pos_x += x_left;
+    mask += x_left;
+    restore_block += x_left;
+
+
+    /*
+     * Adjust x_right to hold the number of pixels to be drawn, and x_left
+     * to hold the amount to skip between rows in the block, which is the
+     * sum of the original left clip and (BLOCK_X_DIM - the original right
+     * clip).
+     */
+    x_right -= x_left;
+    x_left = BLOCK_FRT_TXT_X_DIM - x_right;
+
+    /* Clip any pixels falling off the top of the screen. */
+    if ((y_top = show_y - pos_y) < 0)
+        y_top = 0;
+    /* Clip any pixels falling off the bottom of the screen. */
+    if ((y_bottom = show_y + SCROLL_Y_DIM - pos_y) > BLOCK_FRT_TXT_Y_DIM)
+        y_bottom = BLOCK_FRT_TXT_Y_DIM;
+    /*
+     * Skip the first y_left pixel in screen position and the first
+     * y_left rows of pixels in the block data (and mask and restore block).
+     */
+    pos_y += y_top;
+    mask += y_top * BLOCK_FRT_TXT_X_DIM;
+    restore_block += y_top * BLOCK_FRT_TXT_X_DIM;
+    /* Adjust y_bottom to hold the number of pixel rows to be drawn. */
+    y_bottom -= y_top;
+
+    /* Draw the clipped image. */
+    for (dy = 0; dy < y_bottom; dy++, pos_y++) {
+        for (dx = 0; dx < x_right; dx++, pos_x++, mask++, restore_block++)
+            // store the old map to "restore bloack" and draw the player if *musk==1
+            if (*mask==STATUS_TEXT_COLOR && *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE)<64){
+                // here "(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE)" is just the pointer to the current pixel in the build buffer
+                *restore_block = *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE);
+                *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE) = *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE)+NUM_NONTRANS_COLOR;
+            }
+        pos_x -= x_right;
+        mask += x_left;
+        restore_block += x_left;
+    }
+}
+
+/*
+ * restore_fruit_text_with_mask
+ *   DESCRIPTION:  * restore a 18x320 block with upper left corner at logical position
+ *                (pos_x,pos_y); any part of the block outside of the logical view window
+ *               is clipped (cut off and not drawn). And we only restore the position where the corresponding position in text_mask is STATUS_TEXT_COLOR
+ *   INPUTS: (pos_x,pos_y) -- coordinates of upper left corner of block
+ *           mask -- the data for mask of text
+ *           restore_block -- the place for us to store the old map data
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: draws into the build buffer (with mask), restore the old map before the draw
+ */
+void restore_fruit_text_with_mask(int pos_x, int pos_y, unsigned char* mask, unsigned char* restore_block) {
+    int dx, dy;          /* loop indices for x and y traversal of block */
+    int x_left, x_right; /* clipping limits in horizontal dimension     */
+    int y_top, y_bottom; /* clipping limits in vertical dimension       */
+
+    /* If block is completely off-screen, we do nothing. */
+    if (pos_x + BLOCK_FRT_TXT_X_DIM <= show_x || pos_x >= show_x + SCROLL_X_DIM ||
+        pos_y + BLOCK_FRT_TXT_Y_DIM <= show_y || pos_y >= show_y + SCROLL_Y_DIM)
+        return;
+
+    /* Clip any pixels falling off the left side of screen. */
+    if ((x_left = show_x - pos_x) < 0)
+        x_left = 0;
+    /* Clip any pixels falling off the right side of screen. */
+    if ((x_right = show_x + SCROLL_X_DIM - pos_x) > BLOCK_FRT_TXT_X_DIM)
+        x_right = BLOCK_FRT_TXT_X_DIM;
+    /* Skip the first x_left pixels in both screen position and block data and mask and restore bloack. */
+    pos_x += x_left;
+    mask += x_left;
+    restore_block += x_left;
+
+
+    /*
+     * Adjust x_right to hold the number of pixels to be drawn, and x_left
+     * to hold the amount to skip between rows in the block, which is the
+     * sum of the original left clip and (BLOCK_X_DIM - the original right
+     * clip).
+     */
+    x_right -= x_left;
+    x_left = BLOCK_FRT_TXT_X_DIM - x_right;
+
+    /* Clip any pixels falling off the top of the screen. */
+    if ((y_top = show_y - pos_y) < 0)
+        y_top = 0;
+    /* Clip any pixels falling off the bottom of the screen. */
+    if ((y_bottom = show_y + SCROLL_Y_DIM - pos_y) > BLOCK_FRT_TXT_Y_DIM)
+        y_bottom = BLOCK_FRT_TXT_Y_DIM;
+    /*
+     * Skip the first y_left pixel in screen position and the first
+     * y_left rows of pixels in the block data (and mask and restore block).
+     */
+    pos_y += y_top;
+    mask += y_top * BLOCK_FRT_TXT_X_DIM;
+    restore_block += y_top * BLOCK_FRT_TXT_X_DIM;
+    /* Adjust y_bottom to hold the number of pixel rows to be drawn. */
+    y_bottom -= y_top;
+
+    /* Draw the clipped image. */
+    for (dy = 0; dy < y_bottom; dy++, pos_y++) {
+        for (dx = 0; dx < x_right; dx++, pos_x++, mask++, restore_block++)
+            // store the old map to "restore bloack" and draw the player if *musk==1
+            if (*mask==STATUS_TEXT_COLOR){
+                // here "(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE)" is just the pointer to the current pixel in the build buffer
+                *(img3 + (pos_x >> 2) + pos_y * SCROLL_X_WIDTH + (3 - (pos_x & 3)) * SCROLL_SIZE) = *restore_block;
+            }
+        pos_x -= x_right;
+        mask += x_left;
+        restore_block += x_left;
+    }
+}
+
 /*
  * The functions inside the preprocessor block below rely on functions
  * in maze.c to generate graphical images of the maze.  These functions
@@ -1019,7 +1171,7 @@ static void set_graphics_registers(unsigned short table[NUM_GRAPHICS_REGS]) {
  */
 static void fill_palette() {
     /* 6-bit RGB (red, green, blue) values for first 64 colors */
-    static unsigned char palette_RGB[64][3] = {
+    static unsigned char palette_RGB[NUM_NONTRANS_COLOR*2][3] = {
         { 0x00, 0x00, 0x00 },{ 0x00, 0x00, 0x2A },   /* palette 0x00 - 0x0F    */
         { 0x00, 0x2A, 0x00 },{ 0x00, 0x2A, 0x2A },   /* basic VGA colors       */
         { 0x2A, 0x00, 0x00 },{ 0x2A, 0x00, 0x2A },
@@ -1036,9 +1188,9 @@ static void fill_palette() {
         { 0x24, 0x24, 0x24 },{ 0x28, 0x28, 0x28 },
         { 0x2D, 0x2D, 0x2D },{ 0x32, 0x32, 0x32 },
         { 0x38, 0x38, 0x38 },{ 0x3F, 0x3F, 0x3F },
-        { 0x3F, 0x3F, 0x3F },{ 0x3F, 0x3F, 0x3F },   /* palette 0x20 - 0x2F    */
-        { 0x00, 0x00, 0x3F },{ 0x00, 0x00, 0x00 },   /* wall and player colors */
-        { 0x00, 0x00, 0x00 },{ 0x00, 0x00, 0x00 },
+        { 0x3F, 0x3F, 0x3F },{ 0x3F, 0x3F, 0x3F },   /* palette 0x20 - 0x2F    */    // PLAYER_CENTER_COLOR 0x20 @@ WALL_OUTLINE_COLOR  0x21
+        { 0x00, 0x00, 0x3F },{ 0x00, 0x00, 0x00 },   /* wall and player colors */    // WALL_FILL_COLOR     0x22 
+        { 0x3F, 0x00, 0x00 },{ 0x3F, 0x3F, 0x3F },                                   // STATUS_BACK_COLOR   0x24 @@ STATUS_TEXT_COLOR   0x25
         { 0x00, 0x00, 0x00 },{ 0x00, 0x00, 0x00 },
         { 0x00, 0x00, 0x00 },{ 0x00, 0x00, 0x00 },
         { 0x00, 0x00, 0x00 },{ 0x00, 0x00, 0x00 },
@@ -1051,14 +1203,47 @@ static void fill_palette() {
         { 0x20, 0x18, 0x10 },{ 0x28, 0x1C, 0x10 },
         { 0x3F, 0x20, 0x10 },{ 0x38, 0x24, 0x10 },
         { 0x3F, 0x28, 0x10 },{ 0x3F, 0x2C, 0x10 },
-        { 0x3F, 0x30, 0x10 },{ 0x3F, 0x20, 0x10 }
+        { 0x3F, 0x30, 0x10 },{ 0x3F, 0x20, 0x10 },
+/////////////////////////below is Transparent///////////////////////////////////////////
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x2A/2+WHITE/2) },   /* palette 0x00 - 0x0F    */
+        { (0x00/2+WHITE/2), (0x2A/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x2A/2+WHITE/2), (0x2A/2+WHITE/2) },   /* basic VGA colors       */
+        { (0x2A/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x2A/2 + WHITE/2), (0x00/2+WHITE/2), (0x2A/2+WHITE/2) },
+        { (0x2A/2+WHITE/2), (0x15/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x2A/2 + WHITE/2), (0x2A/2+WHITE/2), (0x2A/2+WHITE/2) },
+        { (0x15/2+WHITE/2), (0x15/2 + WHITE/2), (0x15/2 + WHITE/2) },{ (0x15/2 + WHITE/2), (0x15/2+WHITE/2), (0x3F/2+WHITE/2) },
+        { (0x15/2+WHITE/2), (0x3F/2 + WHITE/2), (0x15/2 + WHITE/2) },{ (0x15/2 + WHITE/2), (0x3F/2+WHITE/2), (0x3F/2+WHITE/2) },
+        { (0x3F/2+WHITE/2), (0x15/2 + WHITE/2), (0x15/2 + WHITE/2) },{ (0x3F/2 + WHITE/2), (0x15/2+WHITE/2), (0x3F/2+WHITE/2) },
+        { (0x3F/2+WHITE/2), (0x3F/2 + WHITE/2), (0x15/2 + WHITE/2) },{ (0x3F/2 + WHITE/2), (0x3F/2+WHITE/2), (0x3F/2+WHITE/2) },
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x05/2 + WHITE/2), (0x05/2+WHITE/2), (0x05/2+WHITE/2) },   /* palette 0x10 - 0x1F    */
+        { (0x08/2+WHITE/2), (0x08/2 + WHITE/2), (0x08/2 + WHITE/2) },{ (0x0B/2 + WHITE/2), (0x0B/2+WHITE/2), (0x0B/2+WHITE/2) },   /* VGA grey scale         */
+        { (0x0E/2+WHITE/2), (0x0E/2 + WHITE/2), (0x0E/2 + WHITE/2) },{ (0x11/2 + WHITE/2), (0x11/2+WHITE/2), (0x11/2+WHITE/2) },
+        { (0x14/2+WHITE/2), (0x14/2 + WHITE/2), (0x14/2 + WHITE/2) },{ (0x18/2 + WHITE/2), (0x18/2+WHITE/2), (0x18/2+WHITE/2) },
+        { (0x1C/2+WHITE/2), (0x1C/2 + WHITE/2), (0x1C/2 + WHITE/2) },{ (0x20/2 + WHITE/2), (0x20/2+WHITE/2), (0x20/2+WHITE/2) },
+        { (0x24/2+WHITE/2), (0x24/2 + WHITE/2), (0x24/2 + WHITE/2) },{ (0x28/2 + WHITE/2), (0x28/2+WHITE/2), (0x28/2+WHITE/2) },
+        { (0x2D/2+WHITE/2), (0x2D/2 + WHITE/2), (0x2D/2 + WHITE/2) },{ (0x32/2 + WHITE/2), (0x32/2+WHITE/2), (0x32/2+WHITE/2) },
+        { (0x38/2+WHITE/2), (0x38/2 + WHITE/2), (0x38/2 + WHITE/2) },{ (0x3F/2 + WHITE/2), (0x3F/2+WHITE/2), (0x3F/2+WHITE/2) },
+        { (0x3F/2+WHITE/2), (0x3F/2 + WHITE/2), (0x3F/2 + WHITE/2) },{ (0x3F/2 + WHITE/2), (0x3F/2+WHITE/2), (0x3F/2+WHITE/2) },   /* palette 0x20 - 0x2F    */
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x3F/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x00/2+WHITE/2) },   /* wall and player colors */
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x00/2+WHITE/2) },
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x00/2+WHITE/2) },
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x00/2+WHITE/2) },
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x00/2+WHITE/2) },
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x00/2+WHITE/2) },
+        { (0x00/2+WHITE/2), (0x00/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x00/2 + WHITE/2), (0x00/2+WHITE/2), (0x00/2+WHITE/2) },
+        { (0x10/2+WHITE/2), (0x08/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x18/2 + WHITE/2), (0x0C/2+WHITE/2), (0x00/2+WHITE/2) },   /* palette 0x30 - 0x3F    */
+        { (0x20/2+WHITE/2), (0x10/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x28/2 + WHITE/2), (0x14/2+WHITE/2), (0x00/2+WHITE/2) },   /* browns for maze floor  */
+        { (0x30/2+WHITE/2), (0x18/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x38/2 + WHITE/2), (0x1C/2+WHITE/2), (0x00/2+WHITE/2) },
+        { (0x3F/2+WHITE/2), (0x20/2 + WHITE/2), (0x00/2 + WHITE/2) },{ (0x3F/2 + WHITE/2), (0x20/2+WHITE/2), (0x10/2+WHITE/2) },
+        { (0x20/2+WHITE/2), (0x18/2 + WHITE/2), (0x10/2 + WHITE/2) },{ (0x28/2 + WHITE/2), (0x1C/2+WHITE/2), (0x10/2+WHITE/2) },
+        { (0x3F/2+WHITE/2), (0x20/2 + WHITE/2), (0x10/2 + WHITE/2) },{ (0x38/2 + WHITE/2), (0x24/2+WHITE/2), (0x10/2+WHITE/2) },
+        { (0x3F/2+WHITE/2), (0x28/2 + WHITE/2), (0x10/2 + WHITE/2) },{ (0x3F/2 + WHITE/2), (0x2C/2+WHITE/2), (0x10/2+WHITE/2) },
+        { (0x3F/2+WHITE/2), (0x30/2 + WHITE/2), (0x10/2 + WHITE/2) },{ (0x3F/2 + WHITE/2), (0x20/2+WHITE/2), (0x10/2+WHITE/2) },
     };
 
     /* Start writing at color 0. */
     OUTB(0x03C8, 0x00);
 
     /* Write all 64 colors from array. */
-    REP_OUTSB(0x03C9, palette_RGB, 64 * 3);
+    REP_OUTSB(0x03C9, palette_RGB, 64 * 3 * 2); // number of non-transparent color(64) * RGB(3) *2(transparent+non-transparent)
 }
 
 /*

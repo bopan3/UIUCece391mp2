@@ -41,12 +41,17 @@
 #define FONT_WIDTH   8
 #define FONT_HEIGHT  16
 
-#define COLOR_TEXT            0x09
-#define COLOR_BACK            0x32
+#define COLOR_TEXT            0x25
+#define COLOR_BACK            0x24
+#define BLOCK_FRT_TXT_X_DIM   320
+#define BLOCK_FRT_TXT_Y_DIM   18
 
 /* Standard VGA text font. */
 extern unsigned char font_data[256][16];
 
 extern void text_to_graphics(char* string_text, unsigned char* tex_buffer);
+
+extern void make_fruit_text_graphics(int fruit_num, unsigned char* fruit_text_buffer);
+
 
 #endif /* TEXT_H */

@@ -152,5 +152,16 @@ extern void draw_full_block_with_mask(int pos_x, int pos_y, unsigned char* blk, 
  * is clipped (cut off and not drawn). And we only restore the position where the corresponding position in mask is 1 
  */
 extern void restore_full_block_with_mask(int pos_x, int pos_y, unsigned char* blk, unsigned char* mask, unsigned char* restore_block);
-
+/*
+ * draw a 18x320 block with upper left corner at logical position
+ * (pos_x,pos_y); any part of the block outside of the logical view window
+ * is clipped (cut off and not drawn). And we only transparent the position where the corresponding position in mask is STATUS_TEXT_COLOR 
+ */
+extern void draw_fruit_text_with_mask(int pos_x, int pos_y, unsigned char* mask, unsigned char* restore_block); 
+/*
+ * restore a 18x320 block with upper left corner at logical position
+ * (pos_x,pos_y); any part of the block outside of the logical view window
+ * is clipped (cut off and not drawn). And we only transparent the position where the corresponding position in mask is STATUS_TEXT_COLOR 
+ */
+extern void restore_fruit_text_with_mask(int pos_x, int pos_y, unsigned char* mask, unsigned char* restore_block);
 #endif /* MODEX_H */
