@@ -24,7 +24,13 @@ Version 3: musk finished
         How: use ssh to see the first error massage "storage class specified for parameter" and search on internet to know it'S
         due to missing ";" in head file. 
 
+Yeah! Dew!
 
+Version 4: transparent statix fruit text finished
+    bug1: 
+        What: the text is black, not transparent
+        reason: forget to change the write range of pallete from 64 to 64*2
+             
 
 
 
