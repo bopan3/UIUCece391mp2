@@ -262,6 +262,22 @@ do {                                                                \
 } while (0)
 
 /*
+ * set_palette_color
+ *   DESCRIPTION: set the palette color for one index 
+ *   INPUTS: color_index -- the index of color we want to set
+ *           RGB -- the intensity of red/green/blue
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: set the palette color for given index 
+ */
+void set_palette_color(unsigned char color_index, unsigned char* RGB){
+    /* Start writing at color 0. */
+    OUTB(0x03C8, color_index);
+    /* Write all 64 colors from array. */
+    REP_OUTSB(0x03C9, RGB,  3 ); // RGB(3)
+}
+
+/*
  * set_mode_X
  *   DESCRIPTION: Puts the VGA into mode X.
  *   INPUTS: horiz_fill_fn -- this function is used as a callback (by
@@ -1384,6 +1400,7 @@ void refresh_bar(int level, int num_fruit, int time){
             tex_buffer_idx = p_off + pixel_idx*4; // 4 planes
             tex_VGA_buffer_idx = p_off* (SCROLL_X_WIDTH*18)+ pixel_idx;  //(num_of_pixel_in_plane=SCROLL_X_WIDTH*18)
             tex_VGA_buffer[tex_VGA_buffer_idx]=tex_buffer[tex_buffer_idx]; 
+            //tex_VGA_buffer[tex_VGA_buffer_idx]= (tex_buffer[tex_buffer_idx]==COLOR_TEXT)?  a : c;
         }
     }
 

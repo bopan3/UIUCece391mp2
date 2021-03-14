@@ -73,6 +73,7 @@ static int sanity_check();
 /* a few constants */
 #define PAN_BORDER      5  /* pan when border in maze squares reaches 5    */
 #define MAX_LEVEL       10 /* maximum level number                         */
+#define WHITE 0x3F
 
 /* outcome of each level, and of the game as a whole */
 typedef enum {GAME_WON, GAME_LOST, GAME_QUIT} game_condition_t;
@@ -102,6 +103,7 @@ static void move_left(int* xpos);
 static int unveil_around_player(int play_x, int play_y);
 static void *rtc_thread(void *arg);
 static void *keyboard_thread(void *arg);
+static void renew_fruit_TXT_pos();
 
 /* 
  * prepare_maze_level
@@ -312,6 +314,7 @@ int quit_flag = 0;
 int winner= 0;
 int next_dir = UP;
 int play_x, play_y, last_dir, dir;
+int fruit_TXT_x, fruit_TXT_y;
 int move_cnt = 0;
 int fd;
 unsigned long data;
@@ -397,10 +400,28 @@ static void *rtc_thread(void *arg) {
     unsigned char restore_block[12*12]; // a block is 12*12, to restore the map crupt by player
     unsigned char fruit_text_buffer[320*18];         //buffer for fruit text graphic. size = width of bar * hight_of_bar
     unsigned char fruitTXT_restore_block[320*18];    // a fruitTXT block is 18*320, to restore the map crupt by fruitTXT
+    /* 6-bit RGB (red, green, blue) values for 10 distinguished colors */
+    unsigned char change_palette_RGB[10][3] = {
+        { 0x3F, 0x00, 0x00 },{ 0x2F, 0x2F, 0x00 },   // Red         yellow
+        { 0x00, 0x3F, 0x00 },{ 0x00, 0x3F, 0x3F },   // green        teal
+        { 0x00, 0x00, 0x3F },{ 0x3F, 0x00, 0x3F },   // blue	    magenta
+        { 0x20, 0x00, 0x3F },{ 0x3F, 0x20, 0x00 },   // purple      Orange
+        { 0x10, 0x20, 0x10 },{ 0x20, 0x10, 0x00 }};  // darkgreen     Brown
+    /* 6-bit RGB (red, green, blue) values for 10 corresponding transparent colors */
+    unsigned char trans_palette_RGB[10][3] = {
+        { 0x3F/2+WHITE/2, 0x00/2+WHITE/2, 0x00/2+WHITE/2 },{ 0x2F/2+WHITE/2, 0x2F/2+WHITE/2, 0x00/2+WHITE/2 },   // Red         yellow
+        { 0x00/2+WHITE/2, 0x3F/2+WHITE/2, 0x00/2+WHITE/2 },{ 0x00/2+WHITE/2, 0x3F/2+WHITE/2, 0x3F/2+WHITE/2 },   // green        teal
+        { 0x00/2+WHITE/2, 0x00/2+WHITE/2, 0x3F/2+WHITE/2 },{ 0x3F/2+WHITE/2, 0x00/2+WHITE/2, 0x3F/2+WHITE/2 },   // blue	    magenta
+        { 0x20/2+WHITE/2, 0x00/2+WHITE/2, 0x3F/2+WHITE/2 },{ 0x3F/2+WHITE/2, 0x20/2+WHITE/2, 0x00/2+WHITE/2 },   // purple      Orange
+        { 0x10/2+WHITE/2, 0x20/2+WHITE/2, 0x10/2+WHITE/2 },{ 0x20/2+WHITE/2, 0x10/2+WHITE/2, 0x00/2+WHITE/2 }};  // darkgreen     Brown
 
     // Loop over levels until a level is lost or quit.
     for (level = 1; (level <= MAX_LEVEL) && (quit_flag == 0); level++) {
         // Prepare for the level.  If we fail, just let the player win.
+        set_palette_color(WALL_FILL_COLOR, change_palette_RGB[(level-1)%10]);
+        set_palette_color(WALL_FILL_COLOR+NUM_NONTRANS_COLOR, trans_palette_RGB[(level-1)%10]);  
+        set_palette_color(STATUS_BACK_COLOR, change_palette_RGB[(level)%10]);
+        set_palette_color(STATUS_BACK_COLOR+NUM_NONTRANS_COLOR, change_palette_RGB[(level)%10]);
         if (prepare_maze_level(level) != 0)
             break;
         goto_next_level = 0;
@@ -423,11 +444,11 @@ static void *rtc_thread(void *arg) {
         // Show maze around the player's original position
         (void)unveil_around_player(play_x, play_y);
         draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
-        draw_fruit_text_with_mask(play_x, play_y, fruit_text_buffer, fruitTXT_restore_block);
-        restore_fruit_text_with_mask(play_x, play_y, fruit_text_buffer, fruitTXT_restore_block);
+        renew_fruit_TXT_pos();
+        draw_fruit_text_with_mask(fruit_TXT_x, fruit_TXT_y, fruit_text_buffer, fruitTXT_restore_block);
         show_screen();
         // restore the pixel in restore_block
-        restore_fruit_text_with_mask(play_x, play_y, fruit_text_buffer, fruitTXT_restore_block);
+        restore_fruit_text_with_mask(fruit_TXT_x, fruit_TXT_y, fruit_text_buffer, fruitTXT_restore_block);
         restore_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
 
 
@@ -454,6 +475,8 @@ static void *rtc_thread(void *arg) {
             time_now = time(NULL);
             time_from_start = time_now - time_this_level_start;
             refresh_bar(level, get_num_fruits(), time_from_start);
+            set_palette_color(PLAYER_CENTER_COLOR, change_palette_RGB[time_from_start%10]); //change color for player
+            set_palette_color(PLAYER_CENTER_COLOR+NUM_NONTRANS_COLOR, trans_palette_RGB[time_from_start%10]); //change transparent color for player
             // If the system is completely overwhelmed we better slow down:
             if (ticks > 8) ticks = 8;
 
@@ -545,11 +568,12 @@ static void *rtc_thread(void *arg) {
             }
             if (need_redraw | 1){  // We always show screen
                 make_fruit_text_graphics(1111, fruit_text_buffer);
-                draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
-                draw_fruit_text_with_mask(play_x, play_y, fruit_text_buffer, fruitTXT_restore_block);    
+                draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block);
+                renew_fruit_TXT_pos();
+                draw_fruit_text_with_mask(fruit_TXT_x, fruit_TXT_y, fruit_text_buffer, fruitTXT_restore_block);    
                 show_screen();   
                 // restore the pixel in restore_block
-                restore_fruit_text_with_mask(play_x, play_y, fruit_text_buffer, fruitTXT_restore_block);
+                restore_fruit_text_with_mask(fruit_TXT_x, fruit_TXT_y, fruit_text_buffer, fruitTXT_restore_block);
                 restore_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
             }
             need_redraw = 0;
@@ -645,3 +669,20 @@ int main() {
     // Return success
     return 0;
 }
+
+/*
+ * renew_fruit_TXT_pos
+ *   DESCRIPTION: given the position of the player, renew the position of the text
+ *   INPUTS: noen
+ *   OUTPUTS: none
+ *   RETURN VALUE: none
+ *   SIDE EFFECTS: renew the position of the fruitTEX to be 12pixels upon the player (if<0, force it )
+ */
+static void renew_fruit_TXT_pos(){
+    fruit_TXT_x=play_x-320/2;   // 320/2 = the length of status bar/2
+    fruit_TXT_y=play_y-BLOCK_Y_DIM*1.5; // the text is 1.5 blocks upon the player
+    if (fruit_TXT_y<3){
+        fruit_TXT_y=3;
+    }
+}
+

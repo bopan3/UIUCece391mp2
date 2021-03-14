@@ -90,7 +90,7 @@ void text_to_graphics(char* string_text, unsigned char* tex_buffer){
  */
 void make_fruit_text_graphics(int fruit_num, unsigned char* fruit_text_buffer){
     //1. given "fruit_num", generate a string with the corresponding info
-    char string_text[]="0123456789          01234567890123456789"; //just rubbish number to make room for 40 chars    
+    char string_text[]="0         012345678901234567890         "; //just rubbish number to make room for 40 chars    
     //sprintf(string_text,"       Level        Fruits     ?        ");
     //2. call text_to_graphics to render the string into graphic 
     text_to_graphics(string_text,fruit_text_buffer);

@@ -54,6 +54,7 @@
 #define SCROLL_X_DIM    IMAGE_X_DIM                /* full image width      */
 #define SCROLL_Y_DIM    IMAGE_Y_DIM                /* full image width      */
 #define SCROLL_X_WIDTH  (IMAGE_X_DIM / 4)          /* addresses (bytes)     */
+#define NUM_NONTRANS_COLOR      64      //number of non-tranparent colors in the palette
 
 /*
  * NOTES
@@ -164,4 +165,8 @@ extern void draw_fruit_text_with_mask(int pos_x, int pos_y, unsigned char* mask,
  * is clipped (cut off and not drawn). And we only transparent the position where the corresponding position in mask is STATUS_TEXT_COLOR 
  */
 extern void restore_fruit_text_with_mask(int pos_x, int pos_y, unsigned char* mask, unsigned char* restore_block);
+/*
+ * set the palette color for given index 
+ */
+extern void set_palette_color(unsigned char color_index, unsigned char* RGB);
 #endif /* MODEX_H */
