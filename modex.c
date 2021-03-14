@@ -79,7 +79,6 @@
 #define NUM_GRAPHICS_REGS       9
 #define NUM_ATTR_REGS           22
 #define WHITE                   0x3F
-#define NUM_NONTRANS_COLOR      64
 
 /* VGA register settings for mode X */
 static unsigned short mode_X_seq[NUM_SEQUENCER_REGS] = {

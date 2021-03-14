@@ -26,11 +26,15 @@ Version 3: musk finished
 
 Yeah! Dew!
 
-Version 4: transparent statix fruit text finished
+Version 4.1: transparent statix fruit text finished
     bug1: 
         What: the text is black, not transparent
         reason: forget to change the write range of pallete from 64 to 64*2
-             
+
+Version 4.2: change wall&statusBACK color + fruitTXT offset finished
+    bug1: 
+        What: when the text go across wallls, the transparence is not correct
+        reason: need to change the pallete for transparent color at the same time when change the color of wall and player 
 
 
 
