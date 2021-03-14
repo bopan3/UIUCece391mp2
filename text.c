@@ -90,10 +90,47 @@ void text_to_graphics(char* string_text, unsigned char* tex_buffer){
  */
 void make_fruit_text_graphics(int fruit_num, unsigned char* fruit_text_buffer){
     //1. given "fruit_num", generate a string with the corresponding info
-    char string_text[]="0         012345678901234567890         "; //just rubbish number to make room for 40 chars    
-    //sprintf(string_text,"       Level        Fruits     ?        ");
+    //char nofruit_text[]="          012345678901234567890         ";   
     //2. call text_to_graphics to render the string into graphic 
-    text_to_graphics(string_text,fruit_text_buffer);
+    switch ( fruit_num ){
+        case 1:{
+            text_to_graphics("                 An Apple!              ", fruit_text_buffer); 
+            break;
+        }
+        case 2:{
+            text_to_graphics("                  Grapes!               ", fruit_text_buffer); 
+            break;
+        }
+        case 3:{
+            text_to_graphics("                  Peach!                ", fruit_text_buffer); 
+            break;
+        }
+        case 4:{
+            text_to_graphics("                Strawberry!             ", fruit_text_buffer); 
+            break;
+        }
+        case 5:{
+            text_to_graphics("                  Banana!               ", fruit_text_buffer); 
+            break;
+        }
+        case 6:{
+            text_to_graphics("                Watermelon!             ", fruit_text_buffer); 
+            break;
+        }
+        case 7:{
+            text_to_graphics("                 Yeah! Dew!             ", fruit_text_buffer); 
+            break;
+        }    
+        default:{  
+            text_to_graphics("                                        ",fruit_text_buffer);
+            break;
+        }
+    }
+
+    // if (fruit_num==0){
+    //     text_to_graphics(find_fruit_text,fruit_text_buffer);   
+    // }
+    
 }
 
 

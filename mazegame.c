@@ -75,6 +75,11 @@ static int sanity_check();
 #define MAX_LEVEL       10 /* maximum level number                         */
 #define WHITE 0x3F
 
+// /*define global varialbles*/
+// int fruit_num_got=0;  //the fruit number we have
+// time_t time_fruit_eaten; // the time when fruit is eaten
+// time_t time_now; 
+
 /* outcome of each level, and of the game as a whole */
 typedef enum {GAME_WON, GAME_LOST, GAME_QUIT} game_condition_t;
 
@@ -443,6 +448,7 @@ static void *rtc_thread(void *arg) {
 
         // Show maze around the player's original position
         (void)unveil_around_player(play_x, play_y);
+        make_fruit_text_graphics(fruit_num_got, fruit_text_buffer);
         draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
         renew_fruit_TXT_pos();
         draw_fruit_text_with_mask(fruit_TXT_x, fruit_TXT_y, fruit_text_buffer, fruitTXT_restore_block);
@@ -456,7 +462,6 @@ static void *rtc_thread(void *arg) {
         ret = read(fd, &data, sizeof(unsigned long));
         // record the time when we start this level
         time_t time_this_level_start;  
-        time_t time_now;  
         time_t time_from_start;
         time_this_level_start =time(NULL);
 
@@ -567,7 +572,7 @@ static void *rtc_thread(void *arg) {
                 }
             }
             if (need_redraw | 1){  // We always show screen
-                make_fruit_text_graphics(1111, fruit_text_buffer);
+                make_fruit_text_graphics(fruit_num_got, fruit_text_buffer);
                 draw_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block);
                 renew_fruit_TXT_pos();
                 draw_fruit_text_with_mask(fruit_TXT_x, fruit_TXT_y, fruit_text_buffer, fruitTXT_restore_block);    

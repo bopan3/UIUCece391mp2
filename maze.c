@@ -61,6 +61,10 @@ static unsigned char* find_block(int x, int y);
 static void _add_a_fruit(int show);
 #endif
 
+
+int fruit_num_got;  //the fruit number we have
+time_t time_fruit_eaten; // the time when fruit is eaten
+time_t time_now;  
 /*
  * The maze array contains a one byte bit vector (maze_bit_t) for each
  * location in a maze.  The left and right boundaries of the maze are unified,
@@ -622,11 +626,13 @@ void unveil_space(int x, int y) {
  *   DESCRIPTION: Checks a maze lattice point for fruit, eats the fruit if
  *                one is present (i.e., removes it from the maze), and updates
  *                the number of fruits (including displayed number).
+ *                 At the same time, renew time_fruit_eaten if a new fruit is eaten, renew fruit_num_got for rendering the corresponding fruitTXT
  *   INPUTS: (x,y) -- the lattice point to be checked for fruit
  *   OUTPUTS: none
  *   RETURN VALUE: fruit number found (1 to NUM_FRUITS), or 0 for no fruit
  *   SIDE EFFECTS: may draw to the screen (empty fruit and, once last fruit
  *                 is eaten, the maze exit)
+ *                 renew time_fruit_eaten if a new fruit is eaten, renew fruit_num_got for rendering the corresponding fruitTXT
  */
 int check_for_fruit(int x, int y) {
     int fnum;  /* fruit number found */
@@ -640,18 +646,30 @@ int check_for_fruit(int x, int y) {
 
     /* If fruit was present... */
     if (fnum != 0) {
+        // record the time then the new fruit is eaten, renew the fruit_num_got for rendering the corresponding fruitTXT
+        time_fruit_eaten = time(NULL);
+        fruit_num_got = fnum;
         /* ...remove it. */
         maze[MAZE_INDEX(x, y)] &= ~MAZE_FRUIT;
 
-    /* Update the count of fruits. */
-    --n_fruits;
+        /* Update the count of fruits. */
+        --n_fruits;
 
-    /* The exit may appear. */
-    if (n_fruits == 0)
-        draw_full_block (exit_x * BLOCK_X_DIM, exit_y * BLOCK_Y_DIM, find_block(exit_x, exit_y));
+        /* The exit may appear. */
+        if (n_fruits == 0){
+         draw_full_block (exit_x * BLOCK_X_DIM, exit_y * BLOCK_Y_DIM, find_block(exit_x, exit_y));
+        }
 
-        /* Redraw the space with no fruit. */
-        draw_full_block (x * BLOCK_X_DIM, y * BLOCK_Y_DIM, find_block(x, y));
+            /* Redraw the space with no fruit. */
+         draw_full_block (x * BLOCK_X_DIM, y * BLOCK_Y_DIM, find_block(x, y));
+    }
+    
+    if (fnum ==0) {
+        // compare time now with the time when new fruit is eaten, if the time is more than FRUIT_TEX_APPEARTIME, renew the fruit_num_got to 0 for rendering nothing
+        time_now = time(NULL);
+        if ((time_now-time_fruit_eaten)>=FRUIT_TEX_APPEARTIME){
+            fruit_num_got = 0;   
+        }
     }
 
     /* Return the fruit number found. */

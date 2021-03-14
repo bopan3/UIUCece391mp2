@@ -41,6 +41,7 @@
 #include "modex.h"
 
 #define SHOW_MIN       6  /* hide the last six pixels of boundary */
+#define FRUIT_TEX_APPEARTIME 5 //the seconds for displaying the fruitTXT after eatten
 
 /*
  * Define maze minimum and maximum dimensions.  The description of make_maze
@@ -52,6 +53,14 @@
 #define MAZE_MAX_X_DIM 50
 #define MAZE_MIN_Y_DIM ((SCROLL_Y_DIM + (BLOCK_Y_DIM - 1) + 2 * SHOW_MIN) / (2 * BLOCK_Y_DIM))
 #define MAZE_MAX_Y_DIM 30
+
+#ifndef __GLOBAL__
+#define __GLOBAL__
+// some global variabels for use between mazegame and maze
+extern int fruit_num_got;  //the fruit number we have
+extern time_t time_fruit_eaten; // the time when fruit is eaten
+extern time_t time_now;  
+#endif
 
 /* bit vector of properties for spaces in the maze */
 typedef enum {

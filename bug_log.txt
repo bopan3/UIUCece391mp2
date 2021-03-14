@@ -24,8 +24,6 @@ Version 3: musk finished
         How: use ssh to see the first error massage "storage class specified for parameter" and search on internet to know it'S
         due to missing ";" in head file. 
 
-Yeah! Dew!
-
 Version 4.1: transparent statix fruit text finished
     bug1: 
         What: the text is black, not transparent
@@ -35,6 +33,9 @@ Version 4.2: change wall&statusBACK color + fruitTXT offset finished
     bug1: 
         What: when the text go across wallls, the transparence is not correct
         reason: need to change the pallete for transparent color at the same time when change the color of wall and player 
+Version 4.3: fruitTXT finished
+    nobug
+
 
 
 
