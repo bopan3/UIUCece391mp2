@@ -42,8 +42,6 @@ struct tux_buttons
 static unsigned int busy = 0;
 static struct tux_buttons button_status;
 static unsigned long led_buffer;
-const static unsigned char seven_segment_information [16] = {0xE7, 0x06, 0xCB, 0x8F, 0x2E, 0xAD, 
-	0xED, 0x86, 0xEF, 0xAF, 0xEE, 0x6D, 0xE1, 0x4F, 0xE9, 0xE8};
 
 
 
@@ -159,31 +157,32 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
  }
 
 /*
- *tuxctl_ioctl_set_led
- *DESCRIPTION: Display the data specified by arg to LED on TUX Controller
- *Input: tty - a pointer to a tty_struct type argument, used for tuxctl_ldisc_put
- *       arg - The argument is a 32-bit integer of the following form: 
- *			   The low 16-bits specify a number whose hexadecimal value is to be 
- *			   displayed on the 7-segment displays. The low 4 bits of the third byte 
- *			   specifies which LED’s should be turned on. The low 4 bits of the 
- *			   The low 4 bits of the highest byte (bits 27:24) specify whether the 
- *			   corresponding decimal points should be turned on. 
+ *set_led
+ *DESCRIPTION: set the LED according to arg
+ *Input: tty - pointer to a tty_struct for ldisc functions
+ *       arg - a 32-bit integer of the following form: The low 
+ * 16-bits specify a number whose hexadecimal value is to be displayed
+ *  on the 7-segment displays. The low 4 bits of the third byte specifies 
+ * which LED’s should be turned on. The low 4 bits of the highest byte (bits 27:24)
+ *  specify whether the corresponding decimal points should be turned on. 
  *Output: None
- *Return Value: Always 0 (success)
- *Side Effects: Same as description
+ *Return Value: 0 on suc, -1 on fail
+ *Side Effects: 
  */
  int set_led (struct tty_struct* tty, unsigned long arg)
  {
+	unsigned char seven_segment_information [16] = {0xE7, 0x06, 0xCB, 0x8F, 0x2E, 0xAD, 0xED, 0x86, 0xEF, 0xAF, 0xEE, 0x6D, 0xE1, 0x4F, 0xE9, 0xE8};
  	unsigned char display_value[4];
  	unsigned char leds_on;
  	unsigned char dp;
  	unsigned int  i;		//general index
  	unsigned long bitmask; 
- 	unsigned char buffer_to_send[6];
- 	if(!ack)
+ 	unsigned char buffer_to_send[6];  //no matter how many led to display, just send 6 bytes
+
+ 	if(ack==0)
  		return -1;
- 	
  	ack = 0;
+
  	//extract information from arg
  	bitmask = 0x000F;
  	for(i = 0; i < 4; ++i, bitmask <<= 4)
@@ -194,13 +193,8 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
  	leds_on = (arg & (0x0F << 16)) >> 16;
  	dp = (arg & (0x0F << 24)) >> 24;
 
- 	//Put the LED display into user-mode.
- 	buffer_to_send[0] = MTCP_LED_USR;
- 	tuxctl_ldisc_put(tty, &buffer_to_send[0], 1);
-
- 	//put data into buffer_to_send
- 	//opcode
  	buffer_to_send[0] = MTCP_LED_SET;
+	//no matter how many led to display, just send 6 bytes
  	buffer_to_send[1] = 0x0F;
 
  	bitmask = 0x01;
@@ -233,7 +227,7 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
 /*
  *button
  *DESCRIPTION: put the status of button to arg
- *INPUT: tty - a pointer to a tty_struct type argument, used for tuxctl_ldisc_put
+ *INPUT: pointer to a tty_struct for ldisc functions
  		 arg - where to put the status of button
  *OUPUT: None
  *Return Value: 0 if success
