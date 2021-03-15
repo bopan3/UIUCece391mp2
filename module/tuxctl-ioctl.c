@@ -7,7 +7,6 @@
  * Steve Lumetta 12-13 Sep 2009
  * Puskar Naha 2013
  */
-
 #include <asm/current.h>
 #include <asm/uaccess.h>
 
@@ -31,28 +30,14 @@
 
 
 
-
-/*************************global variables*********************************/
 static unsigned int ack;
-struct tux_buttons
-{
-	spinlock_t buttons_lock;
-	unsigned long buttons;
-};
-static unsigned int busy = 0;
-static struct tux_buttons button_status;
 static unsigned long led_store;
-
-
-
-
-/************************loacl function declaration************************/
-
+static unsigned long button_store;
 int init(struct tty_struct* tty);
 int button(struct tty_struct* tty, unsigned long arg);
 int set_led (struct tty_struct* tty, unsigned long arg);
 int renew_button_by_irq(unsigned b, unsigned c);
-/************************ Protocol Implementation *************************/
+
 
 /* tuxctl_handle_packet()
  * IMPORTANT : Read the header for tuxctl_ldisc_data_callback() in 
@@ -62,8 +47,6 @@ int renew_button_by_irq(unsigned b, unsigned c);
 void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 {
 	unsigned a, b, c;
-	if(busy)
-		return;
 
     a = packet[0]; /* Avoid printk() sign extending the 8-bit */
     b = packet[1]; /* values when printing them. */
@@ -78,9 +61,7 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
      		break;
 
      	case MTCP_BIOC_EVENT:
-     		busy = 1;
      		renew_button_by_irq(b, c);
-     		busy = 0;
      		break;
 
      	case MTCP_RESET:
@@ -150,9 +131,7 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
 
  	//initialize led_store and buttons
  	led_store = 0x00000000;
- 	button_status.buttons = 0xFF;
- 	button_status.buttons_lock = SPIN_LOCK_UNLOCKED;
-
+ 	button_store=0;
  	return 0;
  }
 
@@ -219,24 +198,36 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
  */
 int renew_button_by_irq(unsigned b, unsigned c)
 {
-	unsigned int status_of_L;
-	unsigned int status_of_D;
+	unsigned int status_R;
+	unsigned int status_L;
+	unsigned int status_D;
+	unsigned int status_U;
+	unsigned int status_C;
+	unsigned int status_B;
+	unsigned int status_A;
+	unsigned int status_S;
 
-	
+			// 		Byte 0 - MTCP_BIOC_EVENT
+			// 		byte 1  +-7-----4-+-3-+-2-+-1-+---0---+
+			// 		     	| 1 X X X | C | B | A | START |
+			// 			    +---------+---+---+---+-------+
+			// 		byte 2  +-7-----4-+---3---+--2---+--1---+-0--+
+			// 			    | 1 X X X | right | down | left | up |
+			// 			    +---------+-------+------+------+----+
+	//the magic number below are the correspoding bit position in the table above
+	status_R = (c & 0x01<<3) >> 3;
+	status_L = (c & 0x01<<1) >> 1;
+	status_D = (c & 0x01<<2) >> 2;
+	status_U = (c & 0x01   )     ;
+	status_C = (b & 0x01<<3) >> 3;
+	status_B = (b & 0x01<<2) >> 2;
+	status_A = (b & 0x01<<1) >> 1;
+	status_S = (b & 0x01   )     ;
 
-	b = ~b;
-	c = ~c;
-
-	status_of_L = (c & 0x02) >> 1;
-	status_of_D = (c & 0x04) >> 2;
-
-	//take the last four bits of b and c and put them into buttons
-	//reassign the value of L and D
-	button_status.buttons = ~((((b & 0x0F) | ((c & 0x0F) << 4)) & 0x9F) 
-				| (status_of_D << 5) | (status_of_L << 6));	
+	button_store= (status_R<<7) | (status_L<<6) | (status_D<<5) | (status_U<<4) | (status_C<<3) | (status_B<<2) | (status_A<<1) | status_S;
+	// the number 7,6,5,4,3,2,1 are the bit positions for the status_X in the required return format
 	return 0;
 }
-
 
 
 /*
@@ -250,26 +241,15 @@ int renew_button_by_irq(unsigned b, unsigned c)
  */
 int button(struct tty_struct* tty, unsigned long arg)
 {
-	unsigned long flags;
 	unsigned long *buttons_ptr;
 	int ret;
-	buttons_ptr = &(button_status.buttons);
-
-	
-
-	//check lock
-	spin_lock_irqsave(&(button_status.buttons_lock), flags);
+	buttons_ptr = &button_store;
 
 	//copy to user space
-	ret = copy_to_user((void *)arg, (void *)buttons_ptr, sizeof(long));
-
-	//unlock
-	spin_unlock_irqrestore(&(button_status.buttons_lock), flags);
+	ret = copy_to_user((void *)arg, (void *)buttons_ptr, sizeof(unsigned long));
 
 	if (ret > 0)
 		return -EFAULT;
 	else
 		return 0;
-	
-
 }
