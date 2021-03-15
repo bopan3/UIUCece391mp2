@@ -33,7 +33,7 @@
 
 
 /*************************global variables*********************************/
-static unsigned int ack_or_not;
+static unsigned int ack;
 struct tux_buttons
 {
 	spinlock_t buttons_lock;
@@ -41,10 +41,10 @@ struct tux_buttons
 };
 static unsigned int busy = 0;
 static struct tux_buttons button_status;
-static unsigned long led_status;
+static unsigned long led_buffer;
 const static unsigned char seven_segment_information [16] = {0xE7, 0x06, 0xCB, 0x8F, 0x2E, 0xAD, 
 	0xED, 0x86, 0xEF, 0xAF, 0xEE, 0x6D, 0xE1, 0x4F, 0xE9, 0xE8};
-unsigned a, b, c;
+
 
 
 
@@ -53,7 +53,7 @@ unsigned a, b, c;
 int init(struct tty_struct* tty);
 int button(struct tty_struct* tty, unsigned long arg);
 int set_led (struct tty_struct* tty, unsigned long arg);
-int tuxctl_ioctl_tux_led_request(struct tty_struct* tty);
+int tuxtl_handle_get_button(unsigned b, unsigned c);
 /************************ Protocol Implementation *************************/
 
 /* tuxctl_handle_packet()
@@ -63,6 +63,7 @@ int tuxctl_ioctl_tux_led_request(struct tty_struct* tty);
  */
 void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 {
+	unsigned a, b, c;
 	if(busy)
 		return;
 
@@ -73,22 +74,25 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
     //printk("packet : %x %x %x\n", a, b, c);
     switch(a)
     {
+
      	case MTCP_ACK:
-     		ack_or_not = 1;
-     		return;
+     		ack = 1;
+     		break;
+
      	case MTCP_BIOC_EVENT:
      		busy = 1;
      		tuxtl_handle_get_button(b, c);
      		busy = 0;
-     		return;
+     		break;
+
      	case MTCP_RESET:
      		init(tty);	
-     		if(!ack_or_not)
- 				return ;			
-		 	set_led(tty, led_status);	
-			return; 
+     		if(!ack)
+      			break;
+		 	set_led(tty, led_buffer);	
+     		break;
 		 default:
-		 	return;
+     		break;
      }
 }
 
@@ -105,9 +109,7 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
  * valid.                                                                     *
  *                                                                            *
  ******************************************************************************/
-int 
-tuxctl_ioctl (struct tty_struct* tty, struct file* file, 
-	      unsigned cmd, unsigned long arg)
+int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsigned long arg)
 {
     switch (cmd) 
     {
@@ -118,11 +120,11 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 		case TUX_SET_LED:
 			return  set_led (tty, arg);
 		case TUX_LED_ACK:
-			return 0;
+			return -EINVAL;
 		case TUX_LED_REQUEST:
-			return 0;
+			return -EINVAL;
 		case TUX_READ_LED:
-			return 0;
+			return -EINVAL;
 		default:
 	    	return -EINVAL;
     }
@@ -131,30 +133,25 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
 /*********************implementation of local functions*************************/
 
 /*
- *tuxctl_ioctl_tuxinit
- *DESCRIPTION: Initialize the TUX Controller
- *Input: tty - a pointer to a tty_struct type argument, used for tuxctl_ldisc_put
+ *init
+ *DESCRIPTION: initialize tux
+ *Input: tty - pointer to a tty_struct for ldisc functions
  *Output: None
- *Return Value: Always 0 (success)
- *Side Effects: Same as description
+ *Return Value: 0
+ *Side Effects: 
  */
  int init(struct tty_struct* tty)
  {
- 	unsigned char write_value[2];
+ 	unsigned char buf[2]; //need send 2 bytes for initial
+	//set device to be busy
+ 	ack = 0;
 
- 	ack_or_not = 0;
- 	
- 	//Enable Button interrupt-on-change.
- 	write_value[0] = MTCP_BIOC_ON;
- 	//Put the LED display into user-mode.
- 	write_value[1] = MTCP_LED_USR;
+ 	buf[0] = MTCP_BIOC_ON;
+ 	buf[1] = MTCP_LED_USR;
+ 	tuxctl_ldisc_put(tty, buf, 2);
 
- 	tuxctl_ldisc_put(tty, &write_value[0], 1);
- 	//usleep(1000);
- 	tuxctl_ldisc_put(tty, &write_value[1], 1);
-
- 	//initialize led_status and buttons
- 	led_status = 0;
+ 	//initialize led_buffer and buttons
+ 	led_buffer = 0x00000000;
  	button_status.buttons = 0xFF;
  	button_status.buttons_lock = SPIN_LOCK_UNLOCKED;
 
@@ -183,10 +180,10 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
  	unsigned int  i;		//general index
  	unsigned long bitmask; 
  	unsigned char buffer_to_send[6];
- 	if(!ack_or_not)
+ 	if(!ack)
  		return -1;
  	
- 	ack_or_not = 0;
+ 	ack = 0;
  	//extract information from arg
  	bitmask = 0x000F;
  	for(i = 0; i < 4; ++i, bitmask <<= 4)
@@ -222,8 +219,8 @@ tuxctl_ioctl (struct tty_struct* tty, struct file* file,
  			buffer_to_send[2 + i] = 0x0;
  		}
  	}
- 	//save the current led_status
- 	led_status = arg;
+ 	//save the current led_buffer
+ 	led_buffer = arg;
 
 
  	//send the buffer to TUX Controller
