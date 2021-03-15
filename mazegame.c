@@ -606,7 +606,8 @@ static void *rtc_thread(void *arg) {
             t_2=(time_from_start/60)%10; // 1 minute
             t_1=(time_from_start%60)/10; // 10 seconds
             t_0=(time_from_start%60)%10; // 1 second
-            ioctl (tux_fd, TUX_SET_LED, 0x04070000+t_0+10*t_1+60*t_2+600*t_3);  //x04070000 is for set 0:00 led
+            ioctl (tux_fd, TUX_SET_LED, 0x04070000 | (t_3<<12) |(t_2<<8) | (t_1<<4) | (t_0));  //x04070000 is for set 0:00 led, shift the bits by 12,8,4 and or them to add them in hex filed
+
         }    
     }
     if (quit_flag == 0)
@@ -618,7 +619,6 @@ static void *rtc_thread(void *arg) {
 static void * tux_thread(void *arg){
     while(winner == 0 ){
         if(quit_flag == 1 || winner == 1){
-            printf("@@@");
             return NULL;
         }
         pthread_mutex_lock(&mtx);
