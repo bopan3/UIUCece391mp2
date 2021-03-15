@@ -36,6 +36,23 @@ Version 4.2: change wall&statusBACK color + fruitTXT offset finished
 Version 4.3: fruitTXT finished
     nobug
 
+Version 5.1: button finished and combined to game
+    bug1: 
+        What: the game is not sensitive to button press
+        reason: the thread is holding mutax too long
+        how: delete all the printf scatter around
+Version 5.2: finished ledset and combine to game
+    bug1: 
+        What: when after time arrive 10:19, it goes to 10:1A and so on
+        reason: use decimal addition rather than hex addition (or) in calculation for arg for led_set
+Version 5.3: final finished
+    bug1:
+        What: when press "`" to exit the game, the game freeze.
+        reason: only the keyboard thread and rtc thread was killed.
+        how: use pthread_cancel to manually kill the tex thread at the end of the rtc thread
+
+
+
 
 
 
