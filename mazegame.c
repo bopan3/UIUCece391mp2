@@ -58,11 +58,11 @@
 #define DOWN      66
 #define RIGHT     67
 #define LEFT      68
-#define TUX_UP   0xef
-#define TUX_DOWN  0xdf
-#define TUX_LEFT  0xbf
-#define TUX_RIGHT 0x7f
-#define TUX_NOT_PRESS  0xff
+#define TUX_UP   0xef   // only the bit for up is 0
+#define TUX_DOWN  0xdf  // only the bit for down is 0
+#define TUX_LEFT  0xbf  // only the bit for left is 0
+#define TUX_RIGHT 0x7f  // only the bit for right is 0
+#define TUX_NOT_PRESS  0xff // not botton is pushed
 
 /*
  * If NDEBUG is not defined, we execute sanity checks to make sure that
@@ -405,6 +405,7 @@ static int total = 0;
  *   SIDE EFFECTS: none
  */
 static void *rtc_thread(void *arg) {
+    int t_3,t_2,t_1,t_0,l_1,l_0;   //different bits of time and level
     int ticks = 0;
     int level;
     int ret;
@@ -598,8 +599,14 @@ static void *rtc_thread(void *arg) {
                 // restore the pixel in restore_block
                 restore_fruit_text_with_mask(fruit_TXT_x, fruit_TXT_y, fruit_text_buffer, fruitTXT_restore_block);
                 restore_full_block_with_mask(play_x, play_y, get_player_block(last_dir), get_player_mask(last_dir), restore_block); 
+            
             }
             need_redraw = 0;
+            t_3=(time_from_start/60)/10; // 10 minutes
+            t_2=(time_from_start/60)%10; // 1 minute
+            t_1=(time_from_start%60)/10; // 10 seconds
+            t_0=(time_from_start%60)%10; // 1 second
+            ioctl (tux_fd, TUX_SET_LED, 0x04070000+t_0+10*t_1+60*t_2+600*t_3);  //x04070000 is for set 0:00 led
         }    
     }
     if (quit_flag == 0)
