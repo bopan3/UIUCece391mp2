@@ -56,7 +56,7 @@
 #define TEST_INPUT_DRIVER  1
 
 /* set to 1 to use tux controller; otherwise, uses keyboard input */
-#define USE_TUX_CONTROLLER 0
+#define USE_TUX_CONTROLLER 1
 
 /* stores original terminal settings */
 static struct termios tio_orig;
