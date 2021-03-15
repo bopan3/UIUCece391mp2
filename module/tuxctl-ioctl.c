@@ -41,7 +41,7 @@ struct tux_buttons
 };
 static unsigned int busy = 0;
 static struct tux_buttons button_status;
-static unsigned long led_buffer;
+static unsigned long led_store;
 
 
 
@@ -51,7 +51,7 @@ static unsigned long led_buffer;
 int init(struct tty_struct* tty);
 int button(struct tty_struct* tty, unsigned long arg);
 int set_led (struct tty_struct* tty, unsigned long arg);
-int tuxtl_handle_get_button(unsigned b, unsigned c);
+int renew_button_by_irq(unsigned b, unsigned c);
 /************************ Protocol Implementation *************************/
 
 /* tuxctl_handle_packet()
@@ -79,7 +79,7 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
 
      	case MTCP_BIOC_EVENT:
      		busy = 1;
-     		tuxtl_handle_get_button(b, c);
+     		renew_button_by_irq(b, c);
      		busy = 0;
      		break;
 
@@ -87,7 +87,7 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
      		init(tty);	
      		if(!ack)
       			break;
-		 	set_led(tty, led_buffer);	
+		 	set_led(tty, led_store);	
      		break;
 		 default:
      		break;
@@ -148,8 +148,8 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
  	buf[1] = MTCP_LED_USR;
  	tuxctl_ldisc_put(tty, buf, 2);
 
- 	//initialize led_buffer and buttons
- 	led_buffer = 0x00000000;
+ 	//initialize led_store and buttons
+ 	led_store = 0x00000000;
  	button_status.buttons = 0xFF;
  	button_status.buttons_lock = SPIN_LOCK_UNLOCKED;
 
@@ -172,56 +172,71 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
  int set_led (struct tty_struct* tty, unsigned long arg)
  {
 	unsigned char seven_segment_information [16] = {0xE7, 0x06, 0xCB, 0x8F, 0x2E, 0xAD, 0xED, 0x86, 0xEF, 0xAF, 0xEE, 0x6D, 0xE1, 0x4F, 0xE9, 0xE8};
- 	unsigned char display_value[4];
- 	unsigned char leds_on;
- 	unsigned char dp;
- 	unsigned int  i;		//general index
- 	unsigned long bitmask; 
- 	unsigned char buffer_to_send[6];  //no matter how many led to display, just send 6 bytes
+ 	unsigned char num_on;
+ 	unsigned char dot_on;		
+ 	unsigned long mask_1bit[4]={0x01,0x02,0x04,0x08}; 
+ 	unsigned long mask_4bit[4]={0x000F,0x00F0,0x0F00,0xF000}; 
+ 	unsigned char buf[6];  //no matter how many led to display, just send 6 bytes
+	unsigned int  i;
 
  	if(ack==0)
  		return -1;
  	ack = 0;
+ 	led_store = arg; //save the current led of tux
 
- 	//extract information from arg
- 	bitmask = 0x000F;
- 	for(i = 0; i < 4; ++i, bitmask <<= 4)
- 	{
- 		display_value[i] = (bitmask & arg) >> (4*i);
- 	}
 
- 	leds_on = (arg & (0x0F << 16)) >> 16;
- 	dp = (arg & (0x0F << 24)) >> 24;
-
- 	buffer_to_send[0] = MTCP_LED_SET;
+ 	num_on = (arg & (0x0F << 16)) >> 16;
+ 	dot_on = (arg & (0x0F << 24)) >> 24;
+	 
 	//no matter how many led to display, just send 6 bytes
- 	buffer_to_send[1] = 0x0F;
+ 	buf[0] = MTCP_LED_SET;
+ 	buf[1] = 0x0F;
 
- 	bitmask = 0x01;
- 	for(i = 0; i < 4; ++i, bitmask <<= 1)
- 	{
- 		if(leds_on & bitmask)
- 		{
- 			display_value[i] = seven_segment_information[display_value[i]];
- 			if(dp & bitmask)
- 				display_value[i] |= 0x10;
- 			buffer_to_send[2 + i] = display_value[i];
- 			
+ 	for(i = 0; i < 4; ++i){
+ 		if(num_on & mask_1bit[i]){
+			// 2 + i because we the first two byte of buf has been filled
+ 			buf[2 + i] = seven_segment_information[(mask_4bit[i] & arg) >> (4*i)]; //  4 bit as a group for processing hex representation
  		}
- 		else
- 		{
- 			buffer_to_send[2 + i] = 0x0;
+ 		else{
+ 			buf[2 + i] = 0x0;
  		}
+ 		if(dot_on & mask_1bit[i]){
+ 			buf[2 + i] |= 0x10;
+		}
  	}
- 	//save the current led_buffer
- 	led_buffer = arg;
-
-
- 	//send the buffer to TUX Controller
- 	tuxctl_ldisc_put(tty, buffer_to_send, 6);
+ 	tuxctl_ldisc_put(tty, buf, 6);
 
 	return 0;
  }
+/*
+ *renew_button_by_irq
+ *DESCRIPTION: renew the value of button_store 
+ *INPUT: b - packet data1
+ *		 c - packet data2
+ *OUPUT: None
+ *Return Value: 0
+ *Side Effects: renew the value of button_store 
+ */
+int renew_button_by_irq(unsigned b, unsigned c)
+{
+	unsigned int status_of_L;
+	unsigned int status_of_D;
+
+	
+
+	b = ~b;
+	c = ~c;
+
+	status_of_L = (c & 0x02) >> 1;
+	status_of_D = (c & 0x04) >> 2;
+
+	//take the last four bits of b and c and put them into buttons
+	//reassign the value of L and D
+	button_status.buttons = ~((((b & 0x0F) | ((c & 0x0F) << 4)) & 0x9F) 
+				| (status_of_D << 5) | (status_of_L << 6));	
+	return 0;
+}
+
 
 
 /*
@@ -257,38 +272,4 @@ int button(struct tty_struct* tty, unsigned long arg)
 		return 0;
 	
 
-}
-/*
- *tuxtl_handle_get_button
- *DESCRIPTION: the function get the status of button and save in buttons
- *INPUT: b - have the value of XXXXCBAS (X stands for not use)
- *		 c - have the value of XXXXRDLU
- *OUPUT: None
- *Return Value: Always 0 (success)
- *Side Effects: change the lowest byte of global variable button to RLDUCBAS
- */
-int tuxtl_handle_get_button(unsigned b, unsigned c)
-{
-	unsigned long flags;
-	unsigned int status_of_L;
-	unsigned int status_of_D;
-
-	b = ~b;
-	c = ~c;
-
-	status_of_L = (c & 0x02) >> 1;
-	status_of_D = (c & 0x04) >> 2;
-
-	//check lock
-	spin_lock_irqsave(&(button_status.buttons_lock), flags);
-
-	//take the last four bits of b and c and put them into buttons
-	//reassign the value of L and D
-	button_status.buttons = ~((((b & 0x0F) | ((c & 0x0F) << 4)) & 0x9F) 
-				| (status_of_D << 5) | (status_of_L << 6));
-	//unlock
-	spin_unlock_irqrestore(&(button_status.buttons_lock), flags);
-
-	
-	return 0;
 }
