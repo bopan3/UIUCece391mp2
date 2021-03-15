@@ -405,7 +405,9 @@ static int total = 0;
  *   SIDE EFFECTS: none
  */
 static void *rtc_thread(void *arg) {
-    int t_3,t_2,t_1,t_0,l_1,l_0;   //different bits of time and level
+    long tv_time_from_start;
+    int five_tick_count=0;
+    int t_3,t_2,t_1,t_0;   //different bits of time and level
     int ticks = 0;
     int level;
     int ret;
@@ -473,7 +475,10 @@ static void *rtc_thread(void *arg) {
         // record the time when we start this level
         time_t time_this_level_start;  
         time_t time_from_start;
+        struct timeval tv_this_level_start;
+        struct timeval tv_now;
         time_this_level_start =time(NULL);
+        gettimeofday(&tv_this_level_start,NULL);
 
         while ((quit_flag == 0) && (goto_next_level == 0)) {
             // Wait for Periodic Interrupt
@@ -485,13 +490,15 @@ static void *rtc_thread(void *arg) {
             ticks = data >> 8;    
 
             total += ticks;
-            
+            five_tick_count++;
             // refresh status bar
             time_now = time(NULL);
+            gettimeofday(&tv_now,NULL);
             time_from_start = time_now - time_this_level_start;
+            tv_time_from_start = ((tv_now.tv_sec*1000 + tv_now.tv_usec/1000)-(tv_this_level_start.tv_sec*1000 + tv_this_level_start.tv_usec/1000))/200; //divide and multi by 1000 for convertion between seconds and ms
             refresh_bar(level, get_num_fruits(), time_from_start);
-            set_palette_color(PLAYER_CENTER_COLOR, change_palette_RGB[time_from_start%10]); //change color for player
-            set_palette_color(PLAYER_CENTER_COLOR+NUM_NONTRANS_COLOR, trans_palette_RGB[time_from_start%10]); //change transparent color for player
+            set_palette_color(PLAYER_CENTER_COLOR, change_palette_RGB[tv_time_from_start%10]); //change color for player
+            set_palette_color(PLAYER_CENTER_COLOR+NUM_NONTRANS_COLOR, trans_palette_RGB[tv_time_from_start%10]); //change transparent color for player
             // If the system is completely overwhelmed we better slow down:
             if (ticks > 8) ticks = 8;
 
