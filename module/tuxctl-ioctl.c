@@ -55,15 +55,15 @@ void tuxctl_handle_packet (struct tty_struct* tty, unsigned char* packet)
     //printk("packet : %x %x %x\n", a, b, c);
     switch(a)
     {
-
+		// the device send ack
      	case MTCP_ACK:
      		ack = 1;
      		break;
-
+		// the device interupt to set the button
      	case MTCP_BIOC_EVENT:
      		renew_button_by_irq(b, c);
      		break;
-
+		// reinitialize the tux and restore the previous led display
      	case MTCP_RESET:
      		init(tty);	
      		if(!ack)
@@ -163,15 +163,17 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
  	ack = 0;
  	led_store = arg; //save the current led of tux
 
-
+	// extract the bits for mask of led numbers (bit 16-20) 
  	num_on = (arg & (0x0F << 16)) >> 16;
+	// extract the bits for mask of dots (bit 24-28) 
  	dot_on = (arg & (0x0F << 24)) >> 24;
 	 
-	//no matter how many led to display, just send 6 bytes
+	//no matter how many led to display, just send 6 bytes (thus we use 0x0F to unable all musks)
  	buf[0] = MTCP_LED_SET;
  	buf[1] = 0x0F;
 
- 	for(i = 0; i < 4; ++i){
+ 	for(i = 0; i < 4; ++i){ // 4 bit as a group for processing hex representation
+		 // check the number mask
  		if(num_on & mask_1bit[i]){
 			// 2 + i because we the first two byte of buf has been filled
  			buf[2 + i] = seven_segment_information[(mask_4bit[i] & arg) >> (4*i)]; //  4 bit as a group for processing hex representation
@@ -179,6 +181,7 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
  		else{
  			buf[2 + i] = 0x0;
  		}
+		 // check the dot mask
  		if(dot_on & mask_1bit[i]){
  			buf[2 + i] |= 0x10;
 		}
@@ -223,7 +226,7 @@ int renew_button_by_irq(unsigned b, unsigned c)
 	status_B = (b & 0x01<<2) >> 2;
 	status_A = (b & 0x01<<1) >> 1;
 	status_S = (b & 0x01   )     ;
-
+	//combine all those infos in the format in the document
 	button_store= (status_R<<7) | (status_L<<6) | (status_D<<5) | (status_U<<4) | (status_C<<3) | (status_B<<2) | (status_A<<1) | status_S;
 	// the number 7,6,5,4,3,2,1 are the bit positions for the status_X in the required return format
 	return 0;
@@ -241,12 +244,11 @@ int renew_button_by_irq(unsigned b, unsigned c)
  */
 int button(struct tty_struct* tty, unsigned long arg)
 {
-	unsigned long *buttons_ptr;
 	int ret;
-	buttons_ptr = &button_store;
+	unsigned long *buttons_pointer;
+	buttons_pointer = &button_store;
 
-	//copy to user space
-	ret = copy_to_user((void *)arg, (void *)buttons_ptr, sizeof(unsigned long));
+	ret = copy_to_user((void *)arg, (void *)buttons_pointer, sizeof(unsigned long));
 
 	if (ret > 0)
 		return -EFAULT;
