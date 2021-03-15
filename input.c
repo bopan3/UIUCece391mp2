@@ -9,18 +9,18 @@
  * documentation for any purpose, without fee, and without written agreement is
  * hereby granted, provided that the above copyright notice and the following
  * two paragraphs appear in all copies of this software.
- * 
- * IN NO EVENT SHALL THE AUTHOR OR THE UNIVERSITY OF ILLINOIS BE LIABLE TO 
- * ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL 
- * DAMAGES ARISING OUT  OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, 
- * EVEN IF THE AUTHOR AND/OR THE UNIVERSITY OF ILLINOIS HAS BEEN ADVISED 
+ *
+ * IN NO EVENT SHALL THE AUTHOR OR THE UNIVERSITY OF ILLINOIS BE LIABLE TO
+ * ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL
+ * DAMAGES ARISING OUT  OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION,
+ * EVEN IF THE AUTHOR AND/OR THE UNIVERSITY OF ILLINOIS HAS BEEN ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * THE AUTHOR AND THE UNIVERSITY OF ILLINOIS SPECIFICALLY DISCLAIM ANY 
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE 
+ *
+ * THE AUTHOR AND THE UNIVERSITY OF ILLINOIS SPECIFICALLY DISCLAIM ANY
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE
  * PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND NEITHER THE AUTHOR NOR
- * THE UNIVERSITY OF ILLINOIS HAS ANY OBLIGATION TO PROVIDE MAINTENANCE, 
+ * THE UNIVERSITY OF ILLINOIS HAS ANY OBLIGATION TO PROVIDE MAINTENANCE,
  * SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS."
  *
  * Author:        Steve Lumetta
@@ -52,6 +52,8 @@
 #include "input.h"
 #include "maze.h"
 
+
+#include "./module/tuxctl-ioctl.h"       /* need to include t*/
 /* set to 1 and compile this file by itself to test functionality */
 #define TEST_INPUT_DRIVER  1
 
@@ -61,7 +63,9 @@
 /* stores original terminal settings */
 static struct termios tio_orig;
 
-/* 
+
+int fd;
+/*
  * init_input
  *   DESCRIPTION: Initializes the input controller.  As both keyboard and
  *                Tux controller control modes use the keyboard for the quit
@@ -69,7 +73,7 @@ static struct termios tio_orig;
  *                rather than the usual terminal mode.
  *   INPUTS: none
  *   OUTPUTS: none
- *   RETURN VALUE: 0 on success, -1 on failure 
+ *   RETURN VALUE: 0 on success, -1 on failure
  *   SIDE EFFECTS: changes terminal settings on stdin; prints an error
  *                 message on failure
  */
@@ -111,7 +115,7 @@ int init_input() {
     return 0;
 }
 
-/* 
+/*
  * get_command
  *   DESCRIPTION: Reads a command from the input controller.  As some
  *                controllers provide only absolute input (e.g., go
@@ -139,21 +143,21 @@ cmd_t get_command(dir_t cur_dir) {
         pushed = DIR_STOP;
         prev_cur = cur_dir;
     }
-    
+
     /* Read all characters from stdin. */
     while ((ch = getc(stdin)) != EOF) {
 
     /* Backquote is used to quit the game. */
     if (ch == '`')
         return CMD_QUIT;
-    
+
 #if (USE_TUX_CONTROLLER == 0) /* use keyboard control with arrow keys */
     /*
      * Arrow keys deliver the byte sequence 27, 91, and 'A' to 'D';
      * we use a small finite state machine to identify them.
      */
     if (ch == 27)
-        state = 1; 
+        state = 1;
     else if (ch == 91 && state == 1)
         state = 2;
     else {
@@ -182,44 +186,46 @@ cmd_t get_command(dir_t cur_dir) {
     return command;
 }
 
-/* 
+/*
  * shutdown_input
  *   DESCRIPTION: Cleans up state associated with input control.  Restores
  *                original terminal settings.
  *   INPUTS: none
  *   OUTPUTS: none
- *   RETURN VALUE: none 
+ *   RETURN VALUE: none
  *   SIDE EFFECTS: restores original terminal settings
  */
 void shutdown_input() {
     (void)tcsetattr(fileno(stdin), TCSANOW, &tio_orig);
 }
 
-/* 
+/*
  * display_time_on_tux
  *   DESCRIPTION: Show number of elapsed seconds as minutes:seconds
  *                on the Tux controller's 7-segment displays.
  *   INPUTS: num_seconds -- total seconds elapsed so far
  *   OUTPUTS: none
- *   RETURN VALUE: none 
+ *   RETURN VALUE: none
  *   SIDE EFFECTS: changes state of controller's display
  */
 void display_time_on_tux(int num_seconds) {
-#if (USE_TUX_CONTROLLER != 0)
-#error "Tux controller code is not operational yet."
-#endif
+// #if (USE_TUX_CONTROLLER != 0)
+//
+// #error "Tux controller code is not operational yet."
+// #endif
+
 }
 
 #if (TEST_INPUT_DRIVER == 1)
 int main() {
-    cmd_t cmd;
-    dir_t dir = DIR_UP;
-    static const char* const cmd_name[NUM_TURNS] = {
-        "none", "right", "back", "left"
-    };
-    static const char* const dir_names[4] = {
-        "up", "right", "down", "left"
-    };
+    // cmd_t cmd;
+    // dir_t dir = DIR_UP;
+    // static const char* const cmd_name[NUM_TURNS] = {
+    //     "none", "right", "back", "left"
+    // };
+    // static const char* const dir_names[4] = {
+    //     "up", "right", "down", "left"
+    // };
 
     /* Grant ourselves permission to use ports 0-1023 */
     if (ioperm(0, 1024, 1) == -1) {
@@ -227,17 +233,52 @@ int main() {
         return 3;
     }
 
-    init_input();
-    while (1) {
-        printf("CURRENT DIRECTION IS %s\n", dir_names[dir]);
-        while ((cmd = get_command(dir)) == TURN_NONE);
-        if (cmd == CMD_QUIT)
-            break;
-        display_time_on_tux(83);
-        printf ("%s\n", cmd_name[cmd]);
-        dir = (dir + cmd) % 4;
+    /* provided commands to initialize file descriptor */
+    fd = open("/dev/ttyS0", O_RDWR | O_NOCTTY);
+    int ldisc_num = N_MOUSE;
+    ioctl(fd, TIOCSETD, &ldisc_num);
+
+    unsigned long button;               /* variable to test TUX_BUTTONS */
+    int count=0;
+    printf("init!");
+    ioctl(fd,TUX_INIT);                 /* test TUX_INIT */
+    sleep(2);
+    ioctl(fd,TUX_SET_LED, 0x0f011112);  /* test TUX_SET_LED */
+    printf("finished");
+    sleep(3);
+    ioctl(fd,TUX_SET_LED, 0x0f0f1112);  /* test TUX_SET_LED */
+    sleep(3);
+    ioctl(fd,TUX_SET_LED, 0x0a0f1a12);  /* test TUX_SET_LED */
+    sleep(3);
+    while(1){                            /* test TUX_BUTTONS */
+      if(count % 32 ==0){
+        ioctl(fd,TUX_SET_LED, 0x0f0f1111);
+      }
+      ioctl(fd,TUX_BUTTONS, &button);
+      printf("%lx", button);
+      printf("\n");
+      count++;
     }
-    shutdown_input();
+    // while(1){};
+
+
+
+
+
+
+/////////////////////////
+//     init_input();
+//     while (1) {
+
+//         printf("CURRENT DIRECTION IS %s\n", dir_names[dir]);
+//          while ((cmd = get_command(dir)) == TURN_NONE);
+//         if (cmd == CMD_QUIT)
+//             break;
+//         display_time_on_tux(83);
+//         printf ("%s\n", cmd_name[cmd]);
+//         dir = (dir + cmd) % 4;
+//     }
+//     shutdown_input();
     return 0;
 }
 #endif
