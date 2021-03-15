@@ -131,7 +131,7 @@ int tuxctl_ioctl (struct tty_struct* tty, struct file* file, unsigned cmd, unsig
 
  	//initialize led_store and buttons
  	led_store = 0x00000000;
- 	button_store=0;
+ 	button_store=0x00FF;
  	return 0;
  }
 

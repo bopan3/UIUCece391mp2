@@ -52,12 +52,17 @@
 #include <sys/io.h>
 #include <termios.h>
 #include <pthread.h>
-
+#include "module/tuxctl-ioctl.h"
 #define BACKQUOTE 96
 #define UP        65
 #define DOWN      66
 #define RIGHT     67
 #define LEFT      68
+#define TUX_UP   0xef
+#define TUX_DOWN  0xdf
+#define TUX_LEFT  0xbf
+#define TUX_RIGHT 0x7f
+#define TUX_NOT_PRESS  0xff
 
 /*
  * If NDEBUG is not defined, we execute sanity checks to make sure that
@@ -76,9 +81,13 @@ static int sanity_check();
 #define WHITE 0x3F
 
 // /*define global varialbles*/
-// int fruit_num_got=0;  //the fruit number we have
-// time_t time_fruit_eaten; // the time when fruit is eaten
-// time_t time_now; 
+int tux_fd; //for tux
+static pthread_cond_t  cv=PTHREAD_COND_INITIALIZER;
+static unsigned long buttons;
+int counter_1=0;
+pthread_t tid1;
+pthread_t tid2;
+pthread_t tid3;
 
 /* outcome of each level, and of the game as a whole */
 typedef enum {GAME_WON, GAME_LOST, GAME_QUIT} game_condition_t;
@@ -493,6 +502,15 @@ static void *rtc_thread(void *arg) {
             }
 
             while (ticks--) {
+                ioctl(tux_fd,TUX_BUTTONS,&buttons);//ioctl(tux_fd,TUX_BUTTONS, &buttons);
+                pthread_mutex_lock(&mtx);
+                //if (counter_1<=1){
+                  //counter_1++;
+                //};
+                if(buttons!=TUX_NOT_PRESS){
+                    pthread_cond_signal(&cv);
+                }
+                pthread_mutex_unlock(&mtx);  
 
                 // Lock the mutex
                 pthread_mutex_lock(&mtx);
@@ -586,10 +604,39 @@ static void *rtc_thread(void *arg) {
     }
     if (quit_flag == 0)
         winner = 1;
-    
+    pthread_cancel(tid3);
     return 0;
 }
 
+static void * tux_thread(void *arg){
+    while(winner == 0 ){
+        if(quit_flag == 1 || winner == 1){
+            printf("@@@");
+            return NULL;
+        }
+        pthread_mutex_lock(&mtx);
+        
+        while(buttons==TUX_NOT_PRESS){ //meaning no buttons are pressed.
+            pthread_cond_wait(&cv,&mtx);
+        }
+        switch(buttons){
+            case TUX_UP:
+                next_dir = DIR_UP;
+                break;
+            case TUX_DOWN:
+                next_dir = DIR_DOWN;
+                break;
+            case TUX_RIGHT:
+                next_dir = DIR_RIGHT;
+                break;
+            case TUX_LEFT:
+                next_dir = DIR_LEFT;
+                break;            
+        }
+        pthread_mutex_unlock(&mtx);
+    }
+    return NULL;
+}
 /*
  * main
  *   DESCRIPTION: Initializes and runs the two threads
@@ -603,9 +650,16 @@ int main() {
     struct termios tio_new;
     unsigned long update_rate = 32; /* in Hz */
 
-    pthread_t tid1;
-    pthread_t tid2;
 
+
+    
+    tux_fd = open("/dev/ttyS0", O_RDWR | O_NOCTTY);
+    int ldisc_num = N_MOUSE;
+    ioctl(tux_fd, TIOCSETD, &ldisc_num);
+    ioctl(tux_fd,TUX_INIT); 
+    ioctl(tux_fd,TUX_SET_LED, 0x04070000); //  0x04070000 means set led to 0:00
+
+    
     // Initialize RTC
     fd = open("/dev/rtc", O_RDONLY, 0);
     
@@ -646,10 +700,12 @@ int main() {
     // Create the threads
     pthread_create(&tid1, NULL, rtc_thread, NULL);
     pthread_create(&tid2, NULL, keyboard_thread, NULL);
+    pthread_create(&tid3, NULL, tux_thread, NULL);
     
     // Wait for all the threads to end
     pthread_join(tid1, NULL);
     pthread_join(tid2, NULL);
+    pthread_join(tid3, NULL);
 
     // Shutdown Display
     clear_mode_X();
@@ -659,6 +715,7 @@ int main() {
         
     // Close RTC
     close(fd);
+    close(tux_fd);
 
     // Print outcome of the game
     if (winner == 1) {    
